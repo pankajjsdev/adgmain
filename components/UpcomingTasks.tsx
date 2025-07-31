@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center
+    alignItems: 'center', // Added the missing quote
   },
   tasksList: {
     flexDirection: 'row', // Arrange tasks horizontally
