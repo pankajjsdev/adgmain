@@ -1,4 +1,4 @@
-import { Image, StyleSheet, Platform, ScrollView } from 'react-native';
+import { Image, StyleSheet, Platform, ScrollView, SafeAreaView } from 'react-native';
 
 import { HelloWave } from '@/components/HelloWave';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
@@ -12,7 +12,7 @@ import UpcomingTasks from '@/components/UpcomingTasks';
 
 export default function HomeScreen() {
   return (
-    <ThemedView style={styles.container}>
+    <SafeAreaView style={styles.container}> {/* Wrap with SafeAreaView */}
       <Header />
       <ScrollView>
         <ThemedView style={styles.contentContainer}>
@@ -24,7 +24,7 @@ export default function HomeScreen() {
       </ScrollView>
       {/* Footer is typically part of the layout, not the screen */}
       {/* <Footer /> */}
-    </ThemedView>
+    </SafeAreaView>
   );
 }
 
