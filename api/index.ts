@@ -8,14 +8,17 @@ import axios, {
 } from 'axios';
 import * as Application from 'expo-application';
 import * as Network from 'expo-network';
-import { Platform, __DEV__ } from 'react-native';
+import { Platform } from 'react-native';
+
+// Fix for __DEV__ import: use globalThis.__DEV__ for React Native compatibility
+const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : (typeof globalThis !== 'undefined' && (globalThis as any).__DEV__) || false;
 
 // Environment configuration
 const getApiBaseUrl = (): string => {
-  if (__DEV__) {
-    return process.env.EXPO_PUBLIC_API_BASE_URL_DEV || 'http://localhost:3000/api';
+  if (IS_DEV) {
+    return process.env?.EXPO_PUBLIC_API_BASE_URL_DEV || 'http://localhost:3000/api';
   }
-  return process.env.EXPO_PUBLIC_API_BASE_URL_PROD || 'https://your-production-api.com/api';
+  return process.env?.EXPO_PUBLIC_API_BASE_URL_PROD || 'https://your-production-api.com/api';
 };
 
 // Constants
@@ -237,7 +240,7 @@ class CacheManager {
     AsyncStorage.removeItem(STORAGE_KEYS.API_CACHE);
   }
 
-  private persistTimeout: NodeJS.Timeout | null = null;
+  private persistTimeout: number | null = null;
   private debouncedPersist = (): void => {
     if (this.persistTimeout) {
       clearTimeout(this.persistTimeout);
@@ -250,7 +253,7 @@ class CacheManager {
       } catch (error) {
         console.error('Failed to persist cache:', error);
       }
-    }, 1000);
+    }, 1000) as unknown as number;
   };
 }
 
@@ -264,7 +267,7 @@ class NetworkManager {
     lastChecked: Date.now(),
   };
   private listeners: Array<(state: NetworkState) => void> = [];
-  private checkInterval: NodeJS.Timeout | null = null;
+  private checkInterval: number | null = null;
   private readonly CHECK_INTERVAL = 10000; // Check every 10 seconds
 
   static getInstance(): NetworkManager {
@@ -373,7 +376,7 @@ class NetworkManager {
 
     this.checkInterval = setInterval(() => {
       this.checkNetworkState();
-    }, this.CHECK_INTERVAL);
+    }, this.CHECK_INTERVAL) as unknown as number;
   }
 
   isOnline(): boolean {
@@ -517,7 +520,7 @@ api.interceptors.request.use(
     config.headers['X-Request-ID'] = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // Log request in development
-    if (__DEV__) {
+    if (IS_DEV) {
       console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
         headers: config.headers,
         data: config.data,
@@ -536,7 +539,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     // Log response in development
-    if (__DEV__) {
+    if (IS_DEV) {
       console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
         status: response.status,
         data: response.data,
@@ -549,7 +552,7 @@ api.interceptors.response.use(
     const originalRequest = error.config as InternalAxiosRequestConfig & RequestConfig & { _retry?: boolean };
 
     // Log error in development
-    if (__DEV__) {
+    if (IS_DEV) {
       console.error(`❌ API Error: ${originalRequest?.method?.toUpperCase()} ${originalRequest?.url}`, {
         status: error.response?.status,
         data: error.response?.data,
