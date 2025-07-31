@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons'; // Using @expo/vector-icons
 interface QuickLinkProps {
   title: string;
   description: string;
-  imageSource: any; // Use appropriate type for image source
+  imageSource: { uri: string }; // Use URI for placeholder images
   onPress: () => void;
 }
 
@@ -31,19 +31,19 @@ const QuickLinks = () => {
       <QuickLink 
         title="Courses"
         description="View all the active courses."
-        imageSource={require('../assets/images/courses.png')} // Replace with your image path
+        imageSource={{ uri: 'https://picsum.photos/100/100' }} // Placeholder image
         onPress={() => { /* Handle navigation */ }}
       />
       <QuickLink 
         title="Analytics"
         description="View all the analytics related stats."
-        imageSource={require('../assets/images/analytics.png')} // Replace with your image path
+        imageSource={{ uri: 'https://picsum.photos/100/100' }} // Placeholder image
         onPress={() => { /* Handle navigation */ }}
       />
       <QuickLink 
         title="Forum"
         description="Coming Soon."
-        imageSource={require('../assets/images/forum.png')} // Replace with your image path
+        imageSource={{ uri: 'https://picsum.photos/100/100' }} // Placeholder image
         onPress={() => { /* Handle navigation */ }}
       />
     </ThemedView>

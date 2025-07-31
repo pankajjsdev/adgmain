@@ -2,12 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
-import { Ionicons } from '@expo/vector-icons'; // Using @expo/vector-icons
+import { Ionicons } from '@expo/vector-icons';
 
 interface TaskProps {
   title: string;
   description: string;
-  imageSource: any; // Use appropriate type for image source
+  imageSource: { uri: string }; // Use URI for placeholder images
   trending?: boolean;
   completed?: string;
   duration?: string;
@@ -59,7 +59,7 @@ const UpcomingTasks = () => {
         <Task 
           title="Frontend Development"
           description="Start Learning basics of frontend development."
-          imageSource={require('../assets/images/frontend.png')} // Replace with your image path
+          imageSource={{ uri: 'https://picsum.photos/300/200' }} // Placeholder image
           trending={true}
           completed="30%"
           duration="40 hrs"
@@ -68,7 +68,7 @@ const UpcomingTasks = () => {
          <Task 
           title="Backend Development"
           description="Start Learning basics of backend development."
-          imageSource={require('../assets/images/backend.png')} // Replace with your image path
+          imageSource={{ uri: 'https://picsum.photos/300/200' }} // Placeholder image
           completed="50%"
           duration="60 hrs"
           onPress={() => { /* Handle navigation */ }}

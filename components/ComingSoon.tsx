@@ -4,9 +4,8 @@ import { View, Image, StyleSheet } from 'react-native';
 const ComingSoon = () => {
   return (
     <View style={styles.container}>
-      {/* Replace with your actual image path */}
       <Image 
-        source={require('../assets/images/coming-soon.png')} 
+        source={{ uri: 'https://picsum.photos/700/300' }} // Placeholder image from Lorem Picsum
         style={styles.image} 
         resizeMode="cover"
       />
