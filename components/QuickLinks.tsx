@@ -3,18 +3,20 @@ import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
+import { useRouter } from 'expo-router';
 
 // Allow both remote (uri) and local (require) images:
 interface QuickLinkProps {
   title: string;
   description: string;
   imageSource: { uri: string } | number;
-  onPress: () => void;
+  href: string;
 }
 
-const QuickLink: React.FC<QuickLinkProps> = ({ title, description, imageSource, onPress }) => {
+const QuickLink: React.FC<QuickLinkProps> = ({ title, description, imageSource, href }) => {
+  const router = useRouter();
   return (
-    <TouchableOpacity style={styles.linkContainer} onPress={onPress}>
+    <TouchableOpacity style={styles.linkContainer} onPress={() => router.push(href)}>
       <Image source={imageSource} style={styles.linkImage} />
       <View style={styles.linkTextContainer}>
         <ThemedText type="subtitle">{title}</ThemedText>
@@ -34,19 +36,19 @@ const QuickLinks: React.FC = () => {
         title="Courses"
         description="View all the active courses."
         imageSource={require('../assets/images/myimages/course.png')} // Change to PNG or JPG, not SVG
-        onPress={() => { /* Handle navigation */ }}
+        href="/courses"
       />
       <QuickLink
         title="Analytics"
         description="View all the analytics related stats."
         imageSource={require('../assets/images/myimages/analytics.png')}
-        onPress={() => { /* Handle navigation */ }}
+        href="/analytics"
       />
       <QuickLink
         title="Forum"
         description="Coming Soon."
         imageSource={require('../assets/images/myimages/form.png')}
-        onPress={() => { /* Handle navigation */ }}
+        href="/forum"
       />
     </ThemedView>
   );
