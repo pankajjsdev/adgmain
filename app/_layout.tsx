@@ -1,30 +1,27 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { SafeAreaView, StyleSheet } from 'react-native';
+import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet } from 'react-native'; // Import SafeAreaView and StyleSheet
-import 'react-native-reanimated';
-
-import { useColorScheme } from 'react-native';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  if (!loaded) {
-    // Async font loading only occurs in development.
-    return null;
-  }
 
   return (
     <SafeAreaView style={styles.container}> {/* Wrap with SafeAreaView */}
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
+        <Stack
+          screenOptions={{
+            // You can customize header styles here for all screens in this stack
+            headerShown: true, // Ensure headers are shown for screens outside tabs
+            headerBackTitleVisible: false, // Hide the title next to the back button
+            headerTintColor: '#000', // Set the color of the back button and title
+            // Add other header options as needed
+          }}
+        >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="+not-found" />
+          {/* Your Quick Links pages will also be part of this stack */}
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
