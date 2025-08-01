@@ -1,58 +1,21 @@
-import { ThemedText } from '@/components/ThemedText'; // Adjust import based on your project structure
+import React, { useEffect, useState } from 'react';
+import { Image, StyleSheet, View, FlatList, ActivityIndicator, Text } from 'react-native';
 import { Stack } from 'expo-router';
-import React from 'react';
-import { FlatList, Image, StyleSheet, View } from 'react-native';
+import { ThemedText } from '@/components/ThemedText'; // Adjust import based on your project structure
+import { apiGet } from '@/api'; // Import your API helper
 
-// Dummy data for courses with placeholder image URIs
-const courses = [
-  {
-    id: '1',
-    title: 'Frontend Development Beginner Course...',
-    lessons: 10,
-    time: '8h 20min',
-    image: { uri: 'https://picsum.photos/seed/course1/60/60' } // Placeholder image URI
-  },
-  {
-    id: '2',
-    title: 'Backend Development Beginner Course...',
-    lessons: 12,
-    time: '8h 20min',
-    image: { uri: 'https://picsum.photos/seed/course2/60/60' } // Placeholder image URI
-  },
-  {
-    id: '3',
-    title: 'Design Basics Fundamentals',
-    lessons: 10,
-    time: '8h 20min',
-    image: { uri: 'https://picsum.photos/seed/course3/60/60' } // Placeholder image URI
-  },
-  {
-    id: '4',
-    title: 'MongoDB Intermediate Course Level - 1',
-    lessons: 10,
-    time: '8h 20min',
-    image: { uri: 'https://picsum.photos/seed/course4/60/60' } // Placeholder image URI
-  },
-  {
-    id: '5',
-    title: 'Frontend Development Advance Course...',
-    lessons: 10,
-    time: '8h 20min',
-    image: { uri: 'https://picsum.photos/seed/course5/60/60' } // Placeholder image URI
-  },
-  {
-    id: '6',
-    title: 'Backend Development Beginner Course...',
-    lessons: 12,
-    time: '8h 20min',
-    image: { uri: 'https://picsum.photos/seed/course6/60/60' } // Placeholder image URI
-  },
-];
+interface Course {
+  id: string;
+  title: string;
+  lessons: number;
+  time: string;
+  image: { uri: string };
+}
 
-function renderCourse({ item }: { item: any }) {
+function renderCourse({ item }: { item: Course }) {
   return (
     <View style={styles.card}>
-      <Image source={item.image} style={styles.image} />
+      {item.image && <Image source={item.image} style={styles.image} />}
       <View style={styles.cardTextContainer}>
         <ThemedText type="subtitle">{item.title}</ThemedText>
         <ThemedText type="secondary">{item.lessons + ' Lessons • ' + item.time}</ThemedText>
@@ -62,15 +25,61 @@ function renderCourse({ item }: { item: any }) {
 }
 
 export default function CoursesScreen() {
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const response = await apiGet<Course[]>('/student-courses');
+        if (response.ok) {
+          setCourses(response.data);
+        } else {
+          setError(response.error?.message || 'Error fetching courses');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Error fetching courses');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourses();
+  }, []);
+
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ title: 'Available Courses' }} />
-      <FlatList
-        data={courses}
-        renderItem={renderCourse}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-      />
+
+      {loading && (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#000" />
+          <Text>Loading Courses...</Text>
+        </View>
+      )}
+
+      {error && (
+        <View style={styles.centered}>
+          <ThemedText type="error">{error}</ThemedText>
+        </View>
+      )}
+
+      {!loading && !error && courses.length > 0 && (
+        <FlatList
+          data={courses}
+          renderItem={renderCourse}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+        />
+      )}
+
+      {!loading && !error && courses.length === 0 && (
+        <View style={styles.centered}>
+          <ThemedText>No courses available.</ThemedText>
+        </View>
+      )}
     </View>
   );
 }
@@ -106,5 +115,10 @@ const styles = StyleSheet.create({
   },
   cardTextContainer: {
     flex: 1,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
