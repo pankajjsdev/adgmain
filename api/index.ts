@@ -1,5 +1,6 @@
+import useAuthStore from '@/store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios,{
+import axios, {
   AxiosError,
   AxiosInstance,
   AxiosRequestConfig,
@@ -9,7 +10,7 @@ import axios,{
 import * as Application from 'expo-application';
 import * as Network from 'expo-network';
 import { Platform } from 'react-native';
-import useAuthStore from './store/authStore'; // Import your auth store
+
 
 // Fix for __DEV__ import: use globalThis.__DEV__ for React Native compatibility
 const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : (typeof globalThis !== 'undefined' && (globalThis as any).__DEV__) || false;
@@ -83,10 +84,10 @@ export interface NetworkState {
 class TokenManager {
   private static instance: TokenManager;
   private isRefreshing = false;
-  private failedQueue: Array<{
+  private failedQueue: {
     resolve: (token: string) => void;
     reject: (error: any) => void;
-  }> = [];
+  }[] = [];
 
   static getInstance(): TokenManager {
     if (!TokenManager.instance) {
@@ -255,7 +256,7 @@ class NetworkManager {
     isInternetReachable: true,
     lastChecked: Date.now(),
   };
-  private listeners: Array<(state: NetworkState) => void> = [];
+  private listeners: ((state: NetworkState) => void)[] = [];
   private checkInterval: number | null = null;
   private readonly CHECK_INTERVAL = 10000; // Check every 10 seconds
 
@@ -373,12 +374,12 @@ class NetworkManager {
 // Request queue for offline support
 class RequestQueue {
   private static instance: RequestQueue;
-  private queue: Array<{
+  private queue: {
     config: RequestConfig;
     resolve: (value: any) => void;
     reject: (error: any) => void;
     timestamp: number;
-  }> = [];
+  }[] = [];
   private readonly MAX_QUEUE_SIZE = 50;
   private readonly MAX_QUEUE_AGE = 300000; // 5 minutes
 
@@ -730,11 +731,11 @@ export const uploadFile = async (
 
 // Batch requests
 export const batchRequests = async <T = any>(
-  requests: Array<{
+  requests: {
     endpoint: string;
     options?: RequestConfig;
-  }>
-): Promise<Array<ApiResponse<T> | ApiError>> => {
+  }[]
+): Promise<(ApiResponse<T> | ApiError)[]> => {
   const promises = requests.map(({ endpoint, options }) =>
     fetchApi<T>(endpoint, options).catch(error => error)
   );

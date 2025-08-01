@@ -1,10 +1,9 @@
-import { Stack, Redirect } from 'expo-router';
-import { SafeAreaView, StyleSheet, ActivityIndicator, View, Text } from 'react-native'; // Import Text
-import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { StatusBar } from 'expo-status-bar';
 import useAuthStore from '@/store/authStore'; // Adjust import path
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react'; // Import useEffect
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, useColorScheme, View } from 'react-native'; // Import Text
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
