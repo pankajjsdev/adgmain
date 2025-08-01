@@ -1,6 +1,6 @@
-import create from 'zustand';
+import { apiGet, apiPost } from '@/api'; // Assuming you have apiGet and apiPost
 import * as SecureStore from 'expo-secure-store';
-import { apiPost, apiGet } from '@/api'; // Assuming you have apiGet and apiPost
+import { create } from 'zustand';
 
 const TOKEN_STORAGE_KEY = '@auth/tokens';
 const USER_STORAGE_KEY = '@auth/user'; // Key for storing user data
