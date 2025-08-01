@@ -1,8 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
-import { Ionicons } from '@expo/vector-icons';
 
 interface TaskProps {
   title: string;
@@ -81,8 +81,7 @@ const UpcomingTasks = () => {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 16,
-    paddingHorizontal: 16,
+    marginVertical: 16
   },
   header: {
     flexDirection: 'row',
