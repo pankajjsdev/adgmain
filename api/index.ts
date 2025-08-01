@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios, {
+import axios,{
   AxiosError,
   AxiosInstance,
   AxiosRequestConfig,
@@ -9,6 +9,7 @@ import axios, {
 import * as Application from 'expo-application';
 import * as Network from 'expo-network';
 import { Platform } from 'react-native';
+import useAuthStore from './store/authStore'; // Import your auth store
 
 // Fix for __DEV__ import: use globalThis.__DEV__ for React Native compatibility
 const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : (typeof globalThis !== 'undefined' && (globalThis as any).__DEV__) || false;
@@ -81,8 +82,6 @@ export interface NetworkState {
 // Token management
 class TokenManager {
   private static instance: TokenManager;
-  private accessToken: string | null = null;
-  private refreshToken: string | null = null;
   private isRefreshing = false;
   private failedQueue: Array<{
     resolve: (token: string) => void;
@@ -97,48 +96,33 @@ class TokenManager {
   }
 
   async initialize(): Promise<void> {
-    try {
-      this.accessToken = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-      this.refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
-    } catch (error) {
-      console.error('Failed to initialize tokens:', error);
-    }
+    // Initialization is now primarily handled by the Zustand store's initializeAuth action
+    console.log('TokenManager initialized');
   }
 
+  // Get the token from the Zustand store
   getAccessToken(): string | null {
-    return this.accessToken;
+    return useAuthStore.getState().token; // Get token from Zustand
   }
 
   getRefreshToken(): string | null {
-    return this.refreshToken;
+     // Get refresh token from Zustand store
+     return useAuthStore.getState().refreshToken;
   }
 
+  // Set tokens in the Zustand store (called after refresh)
   async setTokens(accessToken: string, refreshToken?: string): Promise<void> {
-    try {
-      this.accessToken = accessToken;
-      await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-      
-      if (refreshToken) {
-        this.refreshToken = refreshToken;
-        await AsyncStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
-      }
-    } catch (error) {
-      console.error('Failed to store tokens:', error);
+    useAuthStore.getState().setToken(accessToken);
+    if (refreshToken) {
+       useAuthStore.getState().setRefreshToken(refreshToken);
     }
+    console.log('Tokens updated in Zustand via TokenManager');
   }
 
   async clearTokens(): Promise<void> {
-    try {
-      this.accessToken = null;
-      this.refreshToken = null;
-      await AsyncStorage.multiRemove([
-        STORAGE_KEYS.ACCESS_TOKEN,
-        STORAGE_KEYS.REFRESH_TOKEN,
-        STORAGE_KEYS.USER_DATA,
-      ]);
-    } catch (error) {
-      console.error('Failed to clear tokens:', error);
-    }
+    // Clear tokens in the Zustand store and optionally from storage
+    useAuthStore.getState().logout(); // Clear token and user in Zustand and storage via logout action
+    console.log('Tokens cleared via TokenManager');
   }
 
   async refreshAccessToken(): Promise<string> {
@@ -151,31 +135,36 @@ class TokenManager {
     this.isRefreshing = true;
 
     try {
-      if (!this.refreshToken) {
+      // Get refresh token from Zustand store
+      const currentRefreshToken = this.getRefreshToken();
+
+      if (!currentRefreshToken) {
         throw new Error('No refresh token available');
       }
 
       const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-        refreshToken: this.refreshToken,
+        refreshToken: currentRefreshToken,
       });
 
-      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
-      
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data; // Adjust based on your API response
+
+      // Update tokens in Zustand via setTokens action
       await this.setTokens(accessToken, newRefreshToken);
-      
+
       // Process failed queue
       this.failedQueue.forEach(({ resolve }) => resolve(accessToken));
       this.failedQueue = [];
-      
+
       return accessToken;
     } catch (error) {
       // Process failed queue
       this.failedQueue.forEach(({ reject }) => reject(error));
       this.failedQueue = [];
-      
+
       // Clear tokens on refresh failure
-      await this.clearTokens();
-      throw error;
+      await this.clearTokens(); // This will also update Zustand and storage
+      // You might want to add navigation to the login page here
+      return Promise.reject(error);
     } finally {
       this.isRefreshing = false;
     }
@@ -339,36 +328,6 @@ class NetworkManager {
     }
   }
 
-  private async checkConnectivityFallback(): Promise<void> {
-    try {
-      // Try to reach a reliable endpoint with a short timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      await fetch('https://www.google.com/generate_204', {
-        method: 'HEAD',
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-      
-      this.networkState = {
-        ...this.networkState,
-        isConnected: true,
-        isInternetReachable: true,
-        lastChecked: Date.now(),
-      };
-    } catch (error) {
-      this.networkState = {
-        ...this.networkState,
-        isConnected: false,
-        isInternetReachable: false,
-        lastChecked: Date.now(),
-      };
-      throw error;
-    }
-  }
-
   private startPeriodicChecks(): void {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
@@ -510,7 +469,7 @@ api.interceptors.request.use(
     
     // Add authentication token
     if (!customConfig.skipAuth) {
-      const token = tokenManager.getAccessToken();
+      const token = tokenManager.getAccessToken(); // Get the token from the Zustand store via TokenManager
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -571,6 +530,9 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         console.error('Token refresh failed:', refreshError);
+        // Clear tokens and potentially redirect to login on refresh failure
+        await tokenManager.clearTokens(); // This will also update Zustand
+        // You might want to add navigation to the login page here
         return Promise.reject(refreshError);
       }
     }
