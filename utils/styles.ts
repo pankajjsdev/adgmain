@@ -8,7 +8,7 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 export const ColorPalette = {
   primary: {
     main: Colors.light.tint,
-    dark: '#0056b3',
+    dark: '#0451AF',
     light: '#66b2ff',
     50: '#e3f2fd',
     100: '#bbdefb',

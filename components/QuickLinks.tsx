@@ -1,13 +1,14 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
-import { Ionicons } from '@expo/vector-icons'; // Using @expo/vector-icons
 
+// Allow both remote (uri) and local (require) images:
 interface QuickLinkProps {
   title: string;
   description: string;
-  imageSource: { uri: string }; // Use URI for placeholder images
+  imageSource: { uri: string } | number;
   onPress: () => void;
 }
 
@@ -19,31 +20,32 @@ const QuickLink: React.FC<QuickLinkProps> = ({ title, description, imageSource, 
         <ThemedText type="subtitle">{title}</ThemedText>
         <ThemedText type="secondary">{description}</ThemedText>
       </View>
-      <Ionicons name="chevron-forward-outline" size={24} color="#000" />{/* Adjust color as needed */}
+      <Ionicons name="chevron-forward-outline" size={24} color="#000" />
     </TouchableOpacity>
   );
 };
 
-const QuickLinks = () => {
+// No prop needed, so leave QuickLinks as a regular const:
+const QuickLinks: React.FC = () => {
   return (
     <ThemedView style={styles.container}>
       <ThemedText type="title">Quick Links</ThemedText>
-      <QuickLink 
+      <QuickLink
         title="Courses"
         description="View all the active courses."
-        imageSource={{ uri: 'https://picsum.photos/100/100' }} // Placeholder image
+        imageSource={require('../assets/images/myimages/course.png')} // Change to PNG or JPG, not SVG
         onPress={() => { /* Handle navigation */ }}
       />
-      <QuickLink 
+      <QuickLink
         title="Analytics"
         description="View all the analytics related stats."
-        imageSource={{ uri: 'https://picsum.photos/100/100' }} // Placeholder image
+        imageSource={require('../assets/images/myimages/analytics.png')}
         onPress={() => { /* Handle navigation */ }}
       />
-      <QuickLink 
+      <QuickLink
         title="Forum"
         description="Coming Soon."
-        imageSource={{ uri: 'https://picsum.photos/100/100' }} // Placeholder image
+        imageSource={require('../assets/images/myimages/form.png')}
         onPress={() => { /* Handle navigation */ }}
       />
     </ThemedView>
