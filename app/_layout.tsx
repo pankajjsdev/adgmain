@@ -1,7 +1,7 @@
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
-import { SafeAreaView, StyleSheet } from 'react-native';
-import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { SafeAreaView, StyleSheet, useColorScheme } from 'react-native';
+
 import { StatusBar } from 'expo-status-bar';
 
 export default function RootLayout() {
