@@ -1,34 +1,57 @@
-import { ScrollView, SafeAreaView, View, Text } from 'react-native';
+import { ScrollView, SafeAreaView, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
-import Header from '@/components/Header';
+import { useScreenTracking, useInteractionTracking } from '@/hooks/useAnalytics';
 import BannerCarousel from '@/components/BannerCarousel';
 import QuickLinks from '@/components/QuickLinks';
 import UpcomingTasks from '@/components/UpcomingTasks';
+import useAuthStore from '@/store/authStore';
 
 export default function HomeScreen() {
   const { styles, colors, spacing } = useGlobalStyles();
+  const { user } = useAuthStore();
+  const { trackClick } = useInteractionTracking();
   const localStyles = getLocalStyles(colors, spacing);
 
+  // Track screen view
+  useScreenTracking('Home', {
+    user_id: user?.id,
+    user_name: user?.firstName,
+    has_banners: true
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Header />
+    <SafeAreaView style={styles.safeContainer}>
+      {/* Custom Header */}
+      <View style={localStyles.header}>
+        <Text style={localStyles.logo}>LOGO</Text>
+        <View style={localStyles.headerRight}>
+          <TouchableOpacity 
+            style={localStyles.iconButton}
+            onPress={() => trackClick('notification_icon', { location: 'header' })}
+          >
+            <Ionicons name="notifications-outline" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={localStyles.iconButton}
+            onPress={() => trackClick('profile_icon', { location: 'header' })}
+          >
+            <Ionicons name="person-outline" size={24} color={colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <ScrollView 
-        style={styles.scrollContainer}
-        showsVerticalScrollIndicator={false}
+        style={styles.container}
         contentContainerStyle={localStyles.scrollContent}
+        showsVerticalScrollIndicator={false}
       >
         <View style={localStyles.contentContainer}>
           {/* Greeting Section */}
           <View style={localStyles.greetingContainer}>
-            <View style={localStyles.greetingLeft}>
-              <Text style={localStyles.greeting}>Hello, Harsh!</Text>
-              <Text style={localStyles.welcomeText}>Welcome back to ADG Classes</Text>
-            </View>
-            <View style={localStyles.greetingRight}>
-              <Ionicons name="notifications-outline" size={24} color={colors.text.secondary} />
-              <Ionicons name="person-circle-outline" size={32} color={colors.brand.primary} style={{ marginLeft: spacing.sm }} />
-            </View>
+            <Text style={localStyles.greeting}>
+              Hello, <Text style={localStyles.greetingName}>{user?.firstName || 'Harsh'}!</Text>
+            </Text>
           </View>
 
           {/* Banner Carousel */}
@@ -42,7 +65,12 @@ export default function HomeScreen() {
 
           {/* Upcoming Tasks Section */}
           <View style={localStyles.sectionContainer}>
-            <Text style={localStyles.sectionTitle}>Upcoming Tasks</Text>
+            <View style={localStyles.sectionHeader}>
+              <Text style={localStyles.sectionTitle}>Upcoming Tasks</Text>
+              <TouchableOpacity onPress={() => trackClick('view_all_tasks', { section: 'upcoming_tasks' })}>
+                <Text style={localStyles.viewAllText}>View All</Text>
+              </TouchableOpacity>
+            </View>
             <UpcomingTasks />
           </View>
         </View>
@@ -52,48 +80,68 @@ export default function HomeScreen() {
 }
 
 const getLocalStyles = (colors: any, spacing: any) => ({
+  header: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+  },
+  logo: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    fontFamily: 'Urbanist',
+    color: colors.brand.primary,
+  },
+  headerRight: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+  },
+  iconButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
+  },
   scrollContent: {
     flexGrow: 1,
   },
   contentContainer: {
-    flex: 1,
-    padding: spacing.base,
+    padding: spacing.lg,
   },
   greetingContainer: {
-    flexDirection: 'row' as const,
-    justifyContent: 'space-between' as const,
-    alignItems: 'center' as const,
-    marginVertical: spacing.base,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  greetingLeft: {
-    flex: 1,
-  },
-  greetingRight: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    marginBottom: spacing.lg,
   },
   greeting: {
-    fontSize: 24,
-    fontWeight: '700' as const,
+    fontSize: 20,
+    fontWeight: '400' as const,
     fontFamily: 'Urbanist',
     color: colors.text.primary,
-    marginBottom: spacing.xs,
   },
-  welcomeText: {
-    fontSize: 14,
-    fontFamily: 'Urbanist',
-    color: colors.text.secondary,
+  greetingName: {
+    fontWeight: '700' as const,
+    color: colors.brand.primary,
   },
   sectionContainer: {
     marginTop: spacing.xl,
+  },
+  sectionHeader: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600' as const,
     fontFamily: 'Urbanist',
     color: colors.text.primary,
-    marginBottom: spacing.md,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    fontFamily: 'Urbanist',
+    color: colors.brand.primary,
   },
 });

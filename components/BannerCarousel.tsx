@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, TouchableOpacity, Dimensions, ActivityIndicator } from 'react-native';
-import Carousel from 'react-native-reanimated-carousel';
-import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { apiGet } from '@/api';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import { useAnalytics, useComponentAnalytics } from '@/hooks/useAnalytics';
 import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Image, TouchableOpacity, View } from 'react-native';
+import Carousel from 'react-native-reanimated-carousel';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -19,6 +20,8 @@ interface BannerCarouselProps {
 
 const BannerCarousel: React.FC<BannerCarouselProps> = ({ height = 200 }) => {
   const { colors, spacing } = useGlobalStyles();
+  const { track, events } = useAnalytics();
+  const { trackComponentEvent } = useComponentAnalytics('BannerCarousel');
   const [banners, setBanners] = useState<CarouselItemData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,33 +33,69 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ height = 200 }) => {
   const fetchBanners = async () => {
     try {
       setLoading(true);
+      trackComponentEvent('banner_fetch_started', { height });
+      
       const response = await apiGet<CarouselItemData[]>('/banner/student/banners?limit=50&skip=0&order=asc&status=10');
       
       if (response.success && response.data) {
         setBanners(response.data);
+        track(events.HOME_BANNER_VIEWED, {
+          banner_count: response.data.length,
+          carousel_height: height,
+          fetch_success: true
+        });
       } else {
         setError('Failed to load banners');
+        trackComponentEvent('banner_fetch_failed', {
+          error: 'API response unsuccessful',
+          response_success: response.success
+        });
       }
     } catch (err: any) {
       console.error('Error fetching banners:', err);
       setError(err.message || 'Failed to load banners');
+      trackComponentEvent('banner_fetch_error', {
+        error_message: err.message,
+        error_name: err.name
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleBannerPress = (banner: CarouselItemData) => {
+    // Track banner click event
+    track(events.HOME_BANNER_CLICKED, {
+      banner_id: banner._id,
+      banner_link: banner.link,
+      link_type: banner.link?.startsWith('http') ? 'external' : 'internal',
+      carousel_height: height
+    });
+
     if (banner.link) {
       // Handle navigation based on link type
       if (banner.link.startsWith('http')) {
         // External link - you might want to open in browser
         console.log('Opening external link:', banner.link);
+        trackComponentEvent('external_link_clicked', {
+          banner_id: banner._id,
+          url: banner.link
+        });
       } else {
         // Internal navigation
         try {
           router.push(banner.link as any);
+          trackComponentEvent('internal_navigation', {
+            banner_id: banner._id,
+            destination: banner.link
+          });
         } catch (error) {
           console.error('Navigation error:', error);
+          trackComponentEvent('navigation_error', {
+            banner_id: banner._id,
+            error_message: (error as Error).message,
+            destination: banner.link
+          });
         }
       }
     }

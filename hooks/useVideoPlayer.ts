@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Video } from 'expo-av';
 import { VideoData, VideoProgress, VideoPlayerState } from '@/types/video';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import useCourseStore from '@/store/courseStore';
+import { useMediaTracking } from '@/hooks/useAnalytics';
 
 interface UseVideoPlayerProps {
   videoData: VideoData;
