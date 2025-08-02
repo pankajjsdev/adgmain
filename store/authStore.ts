@@ -2,8 +2,8 @@ import { apiGet, apiPost } from '@/api'; // Assuming you have apiGet and apiPost
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
-const TOKEN_STORAGE_KEY = '@auth/tokens';
-const USER_STORAGE_KEY = '@auth/user'; // Key for storing user data
+const TOKEN_STORAGE_KEY = 'auth-tokens';
+const USER_STORAGE_KEY = 'auth-user'; // Key for storing user data
 
 interface AuthState {
   user: any | null; // Replace 'any' with your user data type

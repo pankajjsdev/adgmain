@@ -26,12 +26,12 @@ export default function RootLayout() {
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.container}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="login" />
-            <Stack.Screen name="signup" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
+ <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+ <Stack screenOptions={{ headerShown: false }}>
+ <Stack.Screen name="(auth)/login" />
+ <Stack.Screen name="(auth)/signup" />
+ <Stack.Screen name="+not-found" />
+ </Stack>
         </ThemeProvider>
          <StatusBar style="auto" />
       </SafeAreaView>
@@ -53,7 +53,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           {/* Custom headerTitle for authenticated users */}
-          {user && (
+ {user && (
              <Stack.Screen
                 name="index" // Assuming your main app route after login is index.tsx or similar
                 options={{
@@ -67,7 +67,7 @@ export default function RootLayout() {
           )}
           
           {/* Your Quick Links pages and other protected routes */}
-          <Stack.Screen name="courses/index" options={{ title: 'Available Courses' }} />
+ <Stack.Screen name="(root)/courses/index" options={{ title: 'Available Courses' }} />
           <Stack.Screen name="analytics/index" options={{ title: 'Analytics' }} />
           <Stack.Screen name="forum/index" options={{ title: 'Forum' }} />
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />
