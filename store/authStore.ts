@@ -57,7 +57,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
   login: async (credentials) => {
     set({ loading: true, error: null });
     try {
-      const response = await apiPost('/login', credentials);
+      const response = await apiPost('/auth/student/local/login', {...credentials, vendorCode: process.env.EXPO_PUBLIC_VENDOR_CODE});
+      console.log('Login response:', response); // Debugging
       if (response.ok) {
         // Assuming your login API returns user data and a token
         const { user, token, refreshToken } = response.data.data; // Adjust based on your API response structure

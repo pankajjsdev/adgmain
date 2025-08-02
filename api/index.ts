@@ -17,10 +17,7 @@ const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : (typeof globalThis !==
 
 // Environment configuration
 const getApiBaseUrl = (): string => {
-  if (IS_DEV) {
-    return process.env?.EXPO_PUBLIC_API_BASE_URL_DEV || 'http://localhost:3000/api';
-  }
-  return process.env?.EXPO_PUBLIC_API_BASE_URL_PROD || 'https://your-production-api.com/api';
+  return process.env?.EXPO_PUBLIC_API_BASE_URL_DEV || 'https://api.closm.com/api';
 };
 
 // Constants
