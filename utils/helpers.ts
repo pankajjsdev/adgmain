@@ -22,7 +22,7 @@ export const formatDate = (date: Date, format: string = 'YYYY-MM-DD'): string =>
  * A helper function to debounce a function call.
  */
 export const debounce = (func: (...args: any[]) => void, delay: number) => {
-  let timeoutId: NodeJS.Timeout | null;
+  let timeoutId: ReturnType<typeof setTimeout> | null;
   return (...args: any[]) => {
     if (timeoutId) {
       clearTimeout(timeoutId);

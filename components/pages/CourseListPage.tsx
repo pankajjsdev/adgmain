@@ -15,7 +15,7 @@ const courses = [
   // Add more courses
 ];
 
-function renderCourse({ item }) {
+function renderCourse({ item }: { item: any }) {
   return (
     <View style={styles.card}>
       <Image source={item.image} style={styles.image} />

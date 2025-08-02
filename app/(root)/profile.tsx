@@ -24,12 +24,12 @@ export default function ProfileScreen() {
         setLoading(true);
         // Fetch user profile from the API endpoint
         const response = await apiGet<UserProfile>('/profile'); // Use your /profile endpoint
-        if (response.ok) {
-          setUserProfile(response.data.data); // Adjust based on your API response structure
+        if (response.success) {
+          setUserProfile(response.data); // Adjust based on your API response structure
           // Optionally update the user data in the auth store here if it's more complete than the initial login data
-          // useAuthStore.getState().setUser(response.data.data);
+          // useAuthStore.getState().setUser(response.data);
         } else {
-          setError(response.error?.message || 'Error fetching profile');
+          setError(response.message || 'Error fetching profile');
         }
       } catch (err: any) {
         setError(err.message || 'Error fetching profile');

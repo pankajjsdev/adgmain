@@ -19,6 +19,7 @@ interface AuthState {
   setToken: (token: string | null) => void; // Action to set token
   setRefreshToken: (token: string | null) => void; // Action to set refresh token
   setUser: (user: any | null) => void; // Action to set user data
+  clearError: () => void; // Action to clear error
 }
 
 const useAuthStore = create<AuthState>((set, get) => ({
@@ -36,10 +37,10 @@ const useAuthStore = create<AuthState>((set, get) => ({
     SecureStore.setItemAsync(TOKEN_STORAGE_KEY, JSON.stringify({ accessToken: token, refreshToken: get().refreshToken }));
   },
 
-   // Action to set refresh token and update stored tokens
-   setRefreshToken: (refreshToken) => {
+  // Action to set refresh token and update stored tokens
+  setRefreshToken: (refreshToken) => {
     set({ refreshToken });
-     // Update stored tokens with the existing access token and new refresh token
+    // Update stored tokens with the existing access token and new refresh token
     SecureStore.setItemAsync(TOKEN_STORAGE_KEY, JSON.stringify({ accessToken: get().token, refreshToken }));
   },
 
@@ -53,31 +54,28 @@ const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  // Action to clear error
+  clearError: () => {
+    set({ error: null });
+  },
 
   login: async (credentials) => {
     set({ loading: true, error: null });
     try {
       const response = await apiPost('/auth/student/local/login', {...credentials, vendorCode: process.env.EXPO_PUBLIC_VENDOR_CODE});
       console.log('Login response:', response); // Debugging
-      if (response.ok) {
+      
+      if (response.success && response.data) {
         // Assuming your login API returns user data and a token
-        const { user, token, refreshToken } = response.data.data; // Adjust based on your API response structure
+        const { user, token, refreshToken } = response.data; // Adjust based on your API response structure
         get().setToken(token); // Use setToken action
         get().setRefreshToken(refreshToken); // Use setRefreshToken action
         get().setUser(user); // Use setUser action
         set({ isAuthenticated: true, loading: false, error: null }); // Clear error on success
       } else {
-        // API error (non-2xx response)
-        console.error('Login API error:', response.error);
-        // More specific error messages based on API response (adjust as needed)
-        if (response.statusCode === 401) {
-          set({ error: 'Invalid email or password', loading: false });
-        } else if (response.error?.message) {
-           set({ error: response.error.message, loading: false });
-        }
-        else {
-          set({ error: 'Login failed. Please try again.', loading: false });
-        }
+        // API returned success: false
+        console.error('Login API error:', response.message);
+        set({ error: response.message || 'Login failed. Please try again.', loading: false });
       }
     } catch (err: any) {
       // Network error or other exceptions
@@ -95,23 +93,17 @@ const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await apiPost('/signup', userData);
-      if (response.ok) {
+      
+      if (response.success && response.data) {
         // Assuming signup also returns tokens and user data for immediate login
-        const { user, token, refreshToken } = response.data.data; // Adjust based on your API response
+        const { user, token, refreshToken } = response.data; // Adjust based on your API response
         get().setToken(token);
         get().setRefreshToken(refreshToken);
         get().setUser(user);
         set({ isAuthenticated: true, loading: false, error: null }); // Clear error on success
       } else {
-         console.error('Signup API error:', response.error);
-         // More specific error messages based on API response (adjust as needed)
-         if (response.statusCode === 409) { // Example: Conflict for existing user
-           set({ error: 'Email already exists', loading: false });
-         } else if (response.error?.message) {
-            set({ error: response.error.message, loading: false });
-         } else {
-           set({ error: 'Signup failed. Please try again.', loading: false });
-         }
+         console.error('Signup API error:', response.message);
+         set({ error: response.message || 'Signup failed. Please try again.', loading: false });
       }
     } catch (err: any) {
       console.error('Signup failed:', err);
@@ -133,47 +125,114 @@ const useAuthStore = create<AuthState>((set, get) => ({
 
   // Action to initialize authentication state from storage
   initializeAuth: async () => {
-    set({ loading: true, error: null }); // Set loading true during initialization
+    set({ loading: true, error: null });
+    
     try {
+      console.log('🔄 Initializing authentication...');
+      
       const storedTokens = await SecureStore.getItemAsync(TOKEN_STORAGE_KEY);
       const storedUser = await SecureStore.getItemAsync(USER_STORAGE_KEY);
 
-      if (storedTokens) {
-        const { accessToken, refreshToken } = JSON.parse(storedTokens);
-        set({ token: accessToken, refreshToken });
-
-        // Token validation or profile fetching
-        try {
-          const userProfileResponse = await apiGet('/profile'); // Replace '/profile' with your actual endpoint
-          if (userProfileResponse.ok) {
-            get().setUser(userProfileResponse.data.data); // Adjust based on your API response
-            set({ isAuthenticated: true, error: null }); // Clear error on successful initialization
-          } else {
-            console.warn('Stored token might be invalid, attempting refresh...');
-            // If profile fetch fails, attempt refresh (handled by API interceptor)
-            // If refresh also fails, the interceptor will call logout
-             set({ error: userProfileResponse.error?.message || 'Failed to validate token', isAuthenticated: false }); // Set error if validation fails
-             await get().logout(); // Clear invalid tokens and log out
-          }
-        } catch (validationError: any) {
-           console.error('Failed to validate token or fetch profile:', validationError);
-           // If validation API call fails (e.g., network error), set error and logout
-           set({ error: validationError.message || 'Failed to validate token', isAuthenticated: false });
-           await get().logout();
-        }
-
-      } else if (storedUser) {
-         set({ user: JSON.parse(storedUser) });
-         // Note: Without a token, subsequent authenticated API calls will likely fail.
-         // Consider clearing user data if no valid token is found.
-         // await get().logout(); // Uncomment to enforce token requirement for isAuthenticated
+      // If no tokens found, user needs to login
+      if (!storedTokens) {
+        console.log('❌ No stored tokens found, user needs to login');
+        set({ 
+          user: null, 
+          token: null, 
+          refreshToken: null, 
+          isAuthenticated: false, 
+          loading: false,
+          error: null 
+        });
+        return;
       }
 
-    } catch (error: any) {
-      console.error('Failed to initialize auth from storage:', error);
-      set({ error: error.message || 'Failed to load session' }); // Set error for storage issues
+      try {
+        const { accessToken, refreshToken } = JSON.parse(storedTokens);
+        
+        // Basic token validation (check if tokens exist and are strings)
+        if (!accessToken || typeof accessToken !== 'string') {
+          console.log('❌ Invalid access token format');
+          await get().logout();
+          return;
+        }
+
+        // Set tokens in state
+        set({ token: accessToken, refreshToken });
+        console.log('✅ Tokens loaded from storage');
+
+        // Validate token by fetching user profile
+        try {
+          console.log('🔍 Validating token with profile fetch...');
+          const userProfileResponse = await apiGet('/student/profile');
+          
+          if (userProfileResponse.success && userProfileResponse.data) {
+            const userData = userProfileResponse.data;
+            console.log('✅ Token validation successful, user authenticated');
+            
+            // Update user data and mark as authenticated
+            get().setUser(userData);
+            set({ isAuthenticated: true, error: null });
+            
+          } else {
+            console.warn('⚠️ Token validation failed, attempting refresh...');
+            
+            // Token might be expired, let the API interceptor handle refresh
+            // If refresh fails, it will automatically call logout
+            set({ 
+              isAuthenticated: false, 
+              error: 'Session expired, please login again' 
+            });
+            await get().logout();
+          }
+          
+        } catch (validationError: any) {
+          console.error('❌ Token validation error:', validationError);
+          
+          // Check if it's a network error vs auth error
+          if (validationError.statusCode === 401 || validationError.statusCode === 403) {
+            console.log('🔄 Unauthorized error, tokens expired');
+            set({ error: 'Session expired, please login again' });
+            await get().logout();
+          } else if (!validationError.statusCode) {
+            // Network error - keep tokens but don't authenticate yet
+            console.log('🌐 Network error during validation, will retry later');
+            if (storedUser) {
+              const userData = JSON.parse(storedUser);
+              set({ 
+                user: userData, 
+                isAuthenticated: false, // Don't authenticate without validation
+                error: 'Network error, please check connection' 
+              });
+            } else {
+              set({ 
+                isAuthenticated: false,
+                error: 'Network error, please check connection' 
+              });
+            }
+          } else {
+            // Other API errors
+            console.log('❌ API error during validation');
+            set({ error: validationError.message || 'Failed to validate session' });
+            await get().logout();
+          }
+        }
+        
+      } catch (error) {
+        console.error('❌ Failed to parse stored tokens:', error);
+        await get().logout();
+      }
+      
+    } catch (storageError: any) {
+      console.error('❌ Failed to read from secure storage:', storageError);
+      set({ 
+        error: 'Failed to load session data', 
+        isAuthenticated: false,
+        loading: false 
+      });
     } finally {
       set({ loading: false });
+      console.log('✅ Authentication initialization complete');
     }
   },
 }));

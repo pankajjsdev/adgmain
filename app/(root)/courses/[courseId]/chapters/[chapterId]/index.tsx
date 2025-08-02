@@ -1,41 +1,19 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+} from 'react-native';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import useCourseStore from '@/store/courseStore';
 
-// Dummy chapter data
-const chapterData = {
-  '1': {
-    '1': {
-      id: '1',
-      title: 'Introduction to React Native',
-      description: 'Getting started with React Native development',
-      videoCount: 5,
-      assignmentCount: 2,
-      testCount: 1,
-      noteCount: 3,
-    },
-    '2': {
-      id: '2',
-      title: 'Components and Props',
-      description: 'Understanding React Native components and props',
-      videoCount: 8,
-      assignmentCount: 3,
-      testCount: 2,
-      noteCount: 4,
-    },
-    '3': {
-      id: '3',
-      title: 'State Management',
-      description: 'Managing state in React Native applications',
-      videoCount: 6,
-      assignmentCount: 2,
-      testCount: 1,
-      noteCount: 2,
-    },
-  }
-};
+
 
 export default function ChapterDetails() {
   const router = useRouter();
@@ -43,14 +21,78 @@ export default function ChapterDetails() {
     courseId: string; 
     chapterId: string; 
   }>();
+  const { styles, colors, spacing } = useGlobalStyles();
+  const localStyles = getLocalStyles(colors, spacing);
   
-  const chapter = chapterData[courseId as keyof typeof chapterData]?.[chapterId as keyof typeof chapterData['1']];
+  const {
+    currentChapter,
+    chaptersLoading,
+    chaptersError,
+    fetchChapter,
+    clearError,
+  } = useCourseStore();
 
-  if (!chapter) {
+  const loadChapterData = useCallback(async () => {
+    if (!chapterId) return;
+    
+    try {
+      await fetchChapter(chapterId as string);
+    } catch {
+      Alert.alert(
+        'Error',
+        'Failed to load chapter details. Please try again.',
+        [
+          { text: 'OK', onPress: () => clearError('chapters') }
+        ]
+      );
+    }
+  }, [chapterId, fetchChapter, clearError]);
+
+  useEffect(() => {
+    loadChapterData();
+  }, [loadChapterData]);
+
+  if (chaptersLoading && !currentChapter) {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Chapter not found</Text>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Chapter Details' }} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.brand.primary} />
+          <Text style={styles.loadingText}>Loading chapter details...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (chaptersError && !currentChapter) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Chapter Details' }} />
+        <View style={styles.centeredContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color={colors.status.error} />
+          <Text style={styles.heading3}>Failed to load chapter</Text>
+          <Text style={styles.textSecondary}>{chaptersError}</Text>
+          <TouchableOpacity style={localStyles.retryButton} onPress={loadChapterData}>
+            <Text style={localStyles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (!currentChapter) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ title: 'Chapter Details' }} />
+        <View style={styles.centeredContainer}>
+          <Ionicons name="library-outline" size={64} color={colors.icon.secondary} />
+          <Text style={styles.heading3}>Chapter not found</Text>
+          <Text style={styles.textSecondary}>The requested chapter could not be found.</Text>
+          <TouchableOpacity style={localStyles.backButton} onPress={() => router.back()}>
+            <Text style={localStyles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   }
 
@@ -58,143 +100,189 @@ export default function ChapterDetails() {
     {
       title: 'Videos',
       icon: 'play-circle-outline',
-      count: chapter.videoCount,
+      count: currentChapter.videosCount,
       route: `/courses/${courseId}/chapters/${chapterId}/videos`,
-      color: '#FF6B6B',
+      color: colors.brand.secondary,
     },
     {
       title: 'Assignments',
       icon: 'document-text-outline',
-      count: chapter.assignmentCount,
+      count: currentChapter.assignmentsCount,
       route: `/courses/${courseId}/chapters/${chapterId}/assignments`,
-      color: '#4ECDC4',
+      color: colors.status.info,
     },
     {
       title: 'Tests',
-      icon: 'checkmark-circle-outline',
-      count: chapter.testCount,
+      icon: 'school-outline',
+      count: currentChapter.testsCount,
       route: `/courses/${courseId}/chapters/${chapterId}/tests`,
-      color: '#45B7D1',
+      color: colors.status.warning,
     },
     {
       title: 'Notes',
       icon: 'book-outline',
-      count: chapter.noteCount,
+      count: currentChapter.notesCount,
       route: `/courses/${courseId}/chapters/${chapterId}/notes`,
-      color: '#96CEB4',
+      color: colors.status.success,
     },
   ];
 
   const renderMenuItem = (item: any) => (
     <TouchableOpacity
       key={item.title}
-      style={[styles.menuCard, { borderLeftColor: item.color }]}
+      style={[localStyles.menuCard, { borderLeftColor: item.color }]}
       onPress={() => router.push(item.route)}
     >
-      <View style={styles.menuContent}>
-        <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
+      <View style={localStyles.menuContent}>
+        <View style={[localStyles.iconContainer, { backgroundColor: item.color + '20' }]}>
           <Ionicons name={item.icon as any} size={24} color={item.color} />
         </View>
-        <View style={styles.menuText}>
-          <Text style={styles.menuTitle}>{item.title}</Text>
-          <Text style={styles.menuCount}>{item.count} items</Text>
+        <View style={localStyles.menuText}>
+          <Text style={localStyles.menuTitle}>{item.title}</Text>
+          <Text style={localStyles.menuCount}>{item.count} items</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        <Ionicons name="chevron-forward" size={20} color={colors.icon.secondary} />
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView>
-        <View style={styles.header}>
-          <Text style={styles.chapterTitle}>{chapter.title}</Text>
-          <Text style={styles.chapterDescription}>{chapter.description}</Text>
+    <View style={styles.container}>
+      <Stack.Screen options={{ 
+        title: currentChapter.title,
+        headerTitleStyle: { fontSize: 16 }
+      }} />
+      
+      <ScrollView 
+        style={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl
+            refreshing={chaptersLoading}
+            onRefresh={loadChapterData}
+            colors={[colors.brand.primary]}
+            tintColor={colors.brand.primary}
+          />
+        }
+      >
+        {/* Chapter Header */}
+        <View style={localStyles.header}>
+          <Text style={styles.heading1}>{currentChapter.title}</Text>
+          <Text style={styles.textSecondary}>{currentChapter.description}</Text>
+          
+          <View style={localStyles.chapterStats}>
+            <View style={localStyles.statItem}>
+              <Ionicons name="time-outline" size={16} color={colors.icon.secondary} />
+              <Text style={localStyles.statText}>Duration: {currentChapter.duration}</Text>
+            </View>
+            <View style={localStyles.statItem}>
+              <Ionicons name="list-outline" size={16} color={colors.icon.secondary} />
+              <Text style={localStyles.statText}>Order: {currentChapter.order}</Text>
+            </View>
+            {currentChapter.isCompleted && (
+              <View style={localStyles.statItem}>
+                <Ionicons name="checkmark-circle" size={16} color={colors.status.success} />
+                <Text style={[localStyles.statText, { color: colors.status.success }]}>Completed</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        <View style={styles.menuSection}>
-          <Text style={styles.sectionTitle}>Chapter Content</Text>
+        {/* Chapter Content Menu */}
+        <View style={localStyles.menuSection}>
+          <Text style={styles.heading2}>Chapter Content</Text>
           {menuItems.map(renderMenuItem)}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
+const getLocalStyles = (colors: any, spacing: any) => ({
   header: {
-    padding: 20,
-    backgroundColor: '#fff',
-    marginBottom: 10,
+    padding: spacing.lg,
+    backgroundColor: colors.surface.card,
+    marginBottom: spacing.md,
   },
-  chapterTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+  chapterStats: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    marginTop: spacing.md,
+    gap: spacing.md,
   },
-  chapterDescription: {
-    fontSize: 16,
-    color: '#666',
-    lineHeight: 22,
+  statItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginRight: spacing.lg,
+  },
+  statText: {
+    marginLeft: spacing.xs,
+    fontSize: 14,
+    color: colors.text.secondary,
   },
   menuSection: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 15,
+    padding: spacing.lg,
   },
   menuCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface.card,
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: spacing.md,
     borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowColor: colors.shadow.color,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
   },
   menuContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    padding: spacing.lg,
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: spacing.lg,
   },
   menuText: {
     flex: 1,
   },
   menuTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
+    fontWeight: '600' as const,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
   menuCount: {
     fontSize: 14,
-    color: '#666',
+    color: colors.text.secondary,
   },
-  errorText: {
-    fontSize: 18,
-    color: '#ff0000',
-    textAlign: 'center',
-    marginTop: 50,
+  retryButton: {
+    backgroundColor: colors.brand.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    marginTop: spacing.md,
+  },
+  retryButtonText: {
+    color: colors.text.inverse,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    textAlign: 'center' as const,
+  },
+  backButton: {
+    backgroundColor: colors.surface.secondary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    marginTop: spacing.md,
+  },
+  backButtonText: {
+    color: colors.text.primary,
+    fontSize: 16,
+    fontWeight: '600' as const,
+    textAlign: 'center' as const,
   },
 });

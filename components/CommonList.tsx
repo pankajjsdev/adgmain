@@ -6,7 +6,7 @@ import { ThemedView } from './ThemedView';
 interface CommonListProps<T> {
   title?: string;
   items: T[];
-  renderItem: ({ item }: { item: T }) => JSX.Element;
+  renderItem: ({ item }: { item: T }) => React.JSX.Element;
   keyExtractor: (item: T, index: number) => string;
   style?: object;
 }
