@@ -32,20 +32,22 @@ export default function VideoDetailScreen() {
     videoDetails, 
     loading, 
     error, 
-    fetchVideoDetails
+    fetchVideoDetails,
+    fetchVideoQuestions,
+    fetchVideoProgress
   } = useCourseStore();
 
   // Get video data
   const videoData: VideoData | null = videoDetails[videoId] || null;
 
+  // Get video progress data from videoDetails
+  const videoProgress = videoData?.progress || null;
+
   // Video player hook for comprehensive video management
   const {
     playerState,
-    videoRef,
-    handleTimeUpdate,
     handleQuestionAnswer,
     togglePlayPause,
-    seekTo,
     closeQuestion,
     canSeek,
     isVideoCompleted
@@ -60,18 +62,37 @@ export default function VideoDetailScreen() {
     }
   });
 
-  // Fetch video details on mount
+  // Fetch all video data on mount
   useEffect(() => {
-    if (videoId) {
-      fetchVideoDetails(videoId);
-    }
-  }, [videoId, fetchVideoDetails]);
+    const fetchAllVideoData = async () => {
+      if (videoId) {
+        try {
+          // Fetch video details first
+          await fetchVideoDetails(videoId);
+          // Then fetch questions and progress in parallel
+          await Promise.all([
+            fetchVideoQuestions(videoId),
+            fetchVideoProgress(videoId)
+          ]);
+        } catch (error) {
+          console.error('Failed to fetch video data:', error);
+        }
+      }
+    };
+    
+    fetchAllVideoData();
+  }, [videoId, fetchVideoDetails, fetchVideoQuestions, fetchVideoProgress]);
 
   // Refresh handler
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      // Refresh all video data
       await fetchVideoDetails(videoId);
+      await Promise.all([
+        fetchVideoQuestions(videoId),
+        fetchVideoProgress(videoId)
+      ]);
     } catch (error) {
       console.error('Refresh failed:', error);
     } finally {
@@ -128,7 +149,9 @@ export default function VideoDetailScreen() {
 
   const tabs = [
     { id: 'description', title: 'Description', icon: 'information-circle-outline' },
+    { id: 'questions', title: 'Questions', icon: 'help-circle-outline' },
     { id: 'resources', title: 'Resources', icon: 'link-outline' },
+    { id: 'progress', title: 'Progress', icon: 'analytics-outline' },
   ];
 
   const getVideoTypeInfo = () => {
@@ -268,6 +291,119 @@ export default function VideoDetailScreen() {
               <View style={styles.emptyState}>
                 <Ionicons name="document-outline" size={48} color={colors.text.secondary} />
                 <Text style={styles.emptyStateText}>No resources available</Text>
+              </View>
+            )}
+          </View>
+        );
+      
+      case 'questions':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.sectionTitle}>Video Questions</Text>
+            {videoData.questions && videoData.questions.length > 0 ? (
+              videoData.questions.map((question: any, index: number) => (
+                <View key={question._id || index} style={styles.infoCard}>
+                  <View style={styles.infoHeader}>
+                    <Text style={styles.heading4}>Q{index + 1}</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Text style={[styles.textSecondary, { fontSize: 12, fontWeight: '600' }]}>
+                        {question.questionType?.toUpperCase()}
+                      </Text>
+                      <Text style={[styles.textSecondary, { fontSize: 12 }]}>
+                        {question.questionLevel}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.textPrimary}>
+                    {question.question?.text?.replace(/<[^>]*>/g, '') || 'Question text not available'}
+                  </Text>
+                  
+                  <View style={{ marginTop: 12 }}>
+                    {question.options?.map((option: any, optIndex: number) => (
+                      <View key={optIndex} style={{ flexDirection: 'row', marginBottom: 8, alignItems: 'flex-start' }}>
+                        <Text style={[styles.textSecondary, { marginRight: 8, fontWeight: '600' }]}>
+                          {String.fromCharCode(65 + optIndex)}.
+                        </Text>
+                        <Text style={[styles.textSecondary, { flex: 1 }]}>
+                          {option.text?.replace(/<[^>]*>/g, '') || `Option ${optIndex + 1}`}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border.primary }}>
+                    <Text style={[styles.textTertiary, { fontSize: 12 }]}>
+                      Appears at: {Math.floor(question.meta?.timeToShowQuestion || 0)}s
+                    </Text>
+                    <Text style={[styles.textTertiary, { fontSize: 12 }]}>
+                      Time limit: {question.meta?.timeToCompleteQuestion || 'No limit'}s
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <View style={styles.centeredContainer}>
+                <Ionicons name="help-circle-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.textSecondary}>No questions available for this video</Text>
+              </View>
+            )}
+          </View>
+        );
+      
+      case 'progress':
+        return (
+          <View style={styles.tabContent}>
+            <Text style={styles.sectionTitle}>Video Progress</Text>
+            {videoProgress ? (
+              <>
+                <View style={styles.infoCard}>
+                  <View style={styles.infoHeader}>
+                    <Text style={styles.heading4}>Completion Status</Text>
+                    <Text style={[styles.textSecondary, { fontWeight: '600' }]}>
+                      {videoProgress.completed ? 'Completed' : 'In Progress'}
+                    </Text>
+                  </View>
+                  
+                  <Text style={styles.textPrimary}>
+                    Watch Time: {Math.floor(videoProgress.currentTime || 0)}s / {Math.floor(videoProgress.totalDuration || 0)}s
+                  </Text>
+                  
+                  <View style={[styles.progressBar, { marginTop: 12 }]}>
+                    <View style={[styles.progressFill, { width: `${videoProgress.progress || 0}%` }]} />
+                  </View>
+                  
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }}>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={styles.textTertiary}>Progress</Text>
+                      <Text style={styles.textPrimary}>{Math.round(videoProgress.progress || 0)}%</Text>
+                    </View>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={styles.textTertiary}>Questions Answered</Text>
+                      <Text style={styles.textPrimary}>{videoProgress.questionsAnswered || 0}</Text>
+                    </View>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={styles.textTertiary}>Correct Answers</Text>
+                      <Text style={styles.textPrimary}>
+                        {videoProgress.correctAnswers || 0} / {videoProgress.totalQuestions || 0}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                
+                {videoProgress.questionsProgress && (
+                  <View style={[styles.infoCard, { marginTop: 16 }]}>
+                    <Text style={styles.heading4}>Questions Progress</Text>
+                    <Text style={styles.textSecondary}>
+                      {videoProgress.questionsProgress.answered || 0} answered out of {videoProgress.questionsProgress.total || 0} questions
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.centeredContainer}>
+                <Ionicons name="analytics-outline" size={48} color={colors.text.secondary} />
+                <Text style={styles.textSecondary}>No progress data available</Text>
               </View>
             )}
           </View>

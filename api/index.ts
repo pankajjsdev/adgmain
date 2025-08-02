@@ -8,6 +8,7 @@ import axios, {
   InternalAxiosRequestConfig
 } from 'axios';
 import * as Application from 'expo-application';
+import * as Device from 'expo-device';
 import * as Network from 'expo-network';
 import { Platform } from 'react-native';
 
@@ -18,6 +19,117 @@ const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : (typeof globalThis !==
 // Environment configuration
 const getApiBaseUrl = (): string => {
   return process.env?.EXPO_PUBLIC_API_BASE_URL_DEV || 'https://api.closm.com/api';
+};
+
+// Device ID generation
+const getDeviceId = async (): Promise<string> => {
+  try {
+    // Try to get stored device ID first
+    let deviceId = await AsyncStorage.getItem('@device/id');
+    
+    if (!deviceId) {
+      // Generate a new device ID using expo-device or fallback to random
+      if (Device.osInternalBuildId) {
+        deviceId = Device.osInternalBuildId;
+      } else {
+        // Fallback: generate a UUID-like string
+        deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+      }
+      
+      // Store the device ID for future use
+      await AsyncStorage.setItem('@device/id', deviceId);
+    }
+    
+    return deviceId;
+  } catch (error) {
+    console.error('Failed to get device ID:', error);
+    // Fallback device ID
+    return 'device_unknown_' + Date.now();
+  }
+};
+
+// Vendor Code generation
+const getVendorCode = async (): Promise<string> => {
+  try {
+    // Try to get stored vendor code first
+    let vendorCode = await AsyncStorage.getItem(STORAGE_KEYS.VENDOR_CODE);
+    
+    if (!vendorCode) {
+      // Get vendor code from environment variable
+      vendorCode = process.env?.EXPO_PUBLIC_VENDOR_CODE || 'DLVBC';
+      
+      // Store the vendor code for future use
+      await AsyncStorage.setItem(STORAGE_KEYS.VENDOR_CODE, vendorCode);
+    }
+    
+    return vendorCode;
+  } catch (error) {
+    console.error('Failed to get vendor code:', error);
+    // Fallback vendor code
+    return process.env?.EXPO_PUBLIC_VENDOR_CODE || 'DLVBC';
+  }
+};
+
+// Helper function to generate cURL command for debugging
+const generateCurlCommand = (config: any): string => {
+  const { url, method = 'GET', headers = {}, data } = config;
+  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  
+  let curlCommand = `curl -X ${method.toUpperCase()} '${fullUrl}'`;
+  
+  // Always add Authorization header (with placeholder if missing)
+  const hasAuthHeader = headers.Authorization;
+  if (hasAuthHeader) {
+    curlCommand += ` \\
+  -H 'Authorization: ${headers.Authorization}'`;
+  } else {
+    curlCommand += ` \\
+  -H 'Authorization: Bearer YOUR_TOKEN_HERE'`;
+  }
+  
+  // Add other headers
+  Object.entries(headers).forEach(([key, value]) => {
+    if (value && key !== 'Authorization' && key !== 'common' && key !== 'delete' && key !== 'get' && key !== 'head' && key !== 'post' && key !== 'put' && key !== 'patch') {
+      curlCommand += ` \\
+  -H '${key}: ${value}'`;
+    }
+  });
+  
+  // Add data for POST/PUT/PATCH requests
+  if (data && ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+    if (typeof data === 'string') {
+      curlCommand += ` \\
+  -d '${data}'`;
+    } else if (data instanceof FormData) {
+      curlCommand += ` \\
+  -F 'file=@<path-to-file>'`;
+    } else {
+      curlCommand += ` \\
+  -d '${JSON.stringify(data)}'`;
+    }
+  }
+  
+  return curlCommand;
+};
+
+// Helper function to print cURL command
+const printCurlCommand = (config: any): void => {
+  // if (IS_DEV) {
+    const curlCommand = generateCurlCommand(config);
+    console.log('\n📋 cURL Command (copy & paste to test):');
+    console.log('=' .repeat(50));
+    console.log(curlCommand);
+    
+    // Check if Authorization header is missing
+    const hasAuthHeader = config.headers && config.headers.Authorization;
+    if (!hasAuthHeader) {
+      console.log('\n⚠️  WARNING: No Authorization token found!');
+      console.log('   - User might not be logged in');
+      console.log('   - Add manually: -H "Authorization: Bearer YOUR_TOKEN"');
+    }
+    
+    console.log('=' .repeat(50) + '\n');
+  // }
 };
 
 // Constants
@@ -33,6 +145,7 @@ export const STORAGE_KEYS = {
   USER_DATA: '@auth/user_data',
   API_CACHE: '@api/cache',
   NETWORK_STATE: '@network/state',
+  VENDOR_CODE: '@device/vendor_code',
 } as const;
 
 // API Response types
@@ -359,6 +472,35 @@ class NetworkManager {
     return this.getNetworkState();
   }
 
+  private async checkConnectivityFallback(): Promise<void> {
+    try {
+      // Simple connectivity test - try to reach a reliable endpoint
+      await fetch('https://www.google.com/generate_204', {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-cache',
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+      
+      // If we get here, we have connectivity
+      this.networkState = {
+        ...this.networkState,
+        isConnected: true,
+        isInternetReachable: true,
+        lastChecked: Date.now(),
+      };
+    } catch (error) {
+      // If fetch fails, assume no connectivity
+      this.networkState = {
+        ...this.networkState,
+        isConnected: false,
+        isInternetReachable: false,
+        lastChecked: Date.now(),
+      };
+      throw error; // Re-throw to maintain the error handling flow
+    }
+  }
+
   cleanup(): void {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
@@ -451,6 +593,11 @@ const api: AxiosInstance = axios.create({
     'X-Client-Platform': Platform.OS,
     'X-Client-Version': Application.nativeApplicationVersion || '1.0.0',
     'X-Client-Build': Application.nativeBuildVersion || '1',
+    // Additional headers as requested
+    'appVersion': '0.0.1',
+    // Application.nativeApplicationVersion || '1.0.0',
+    'devicePlatform': Platform.OS,
+    // deviceId will be added dynamically in request interceptor
   },
 });
 
@@ -468,9 +615,36 @@ api.interceptors.request.use(
     // Add authentication token
     if (!customConfig.skipAuth) {
       const token = tokenManager.getAccessToken(); // Get the token from the Zustand store via TokenManager
+      console.log('🔑 Token retrieval debug:', {
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'null'
+      });
+      
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+        console.log('✅ Authorization header added to request');
+      } else {
+        console.log('⚠️  No access token found - user might not be logged in');
       }
+    }
+
+    // Add device ID header
+    try {
+      const deviceId = await getDeviceId();
+      config.headers['deviceId'] = deviceId;
+    } catch (error) {
+      console.error('Failed to get device ID for request:', error);
+      config.headers['deviceId'] = 'device_unknown';
+    }
+
+    // Add vendor code header
+    try {
+      const vendorCode = await getVendorCode();
+      config.headers['vendorCode'] = vendorCode;
+    } catch (error) {
+      console.error('Failed to get vendor code for request:', error);
+      config.headers['vendorCode'] = 'DLVBC';
     }
 
     // Add request ID for tracking
@@ -482,6 +656,9 @@ api.interceptors.request.use(
         headers: config.headers,
         data: config.data,
       });
+      
+      // Print cURL command for easy testing
+      printCurlCommand(config);
     }
 
     return config;

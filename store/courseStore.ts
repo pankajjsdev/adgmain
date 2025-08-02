@@ -1,35 +1,80 @@
+import { apiGet, apiPost } from '@/api';
 import { create } from 'zustand';
-import { apiGet, apiPost, ApiResponse } from '@/api';
 
 // Course interfaces
 export interface Course {
-  id: string;
-  title: string;
-  description: string;
-  instructor: string;
-  image?: { uri: string };
-  lessons: number;
-  time: string;
-  progress: number;
-  status: 'not_started' | 'in_progress' | 'completed';
+  // Legacy fields (for backward compatibility)
+  id?: string;
+  title?: string;
+  description?: string;
+  image?: { uri: string } | string;
+  instructor?: string;
+  lessons?: number;
+  time?: string;
+  progress?: number;
+  category?: string;
+  difficulty?: string;
+  rating?: number;
+  price?: number;
+  isEnrolled?: boolean;
+  
+  // New API response fields
+  _id: string;
+  courseName: string;
+  courseCode: string;
+  courseIcon: string;
+  courseType: string;
+  courseDisplay: string;
+  communityDisplay: string;
+  permanentCourse: string;
+  sellPrice: number | null;
+  discountPrice: number | null;
+  status: number;
+  vendorCode: string;
   createdAt: string;
+  chapters: string[];
+  courseProgress: {
+    assignment: Record<string, { completedCount: number; totalCount: number }>;
+    chapter: Record<string, { completedCount: number; totalCount: number }>;
+    course: {
+      overall: { completedCount: number; totalCount: number };
+    };
+    note: Record<string, any>;
+    test: Record<string, { completedCount: number; totalCount: number }>;
+    video: Record<string, { completedCount: number; totalCount: number }>;
+  };
   updatedAt: string;
 }
 
 export interface Chapter {
-  id: string;
+  // Legacy fields (for backward compatibility)
+  id?: string;
+  title?: string;
+  description?: string;
+  order?: number;
+  duration?: string;
+  isCompleted?: boolean;
+  videosCount?: number;
+  assignmentsCount?: number;
+  testsCount?: number;
+  notesCount?: number;
+  updatedAt?: string;
+  
+  // New API response fields
+  _id: string;
+  assignments: string[];
+  chapterComponent: string[];
+  chapterIcon: string;
+  chapterName: string;
   courseId: string;
-  title: string;
-  description: string;
-  order: number;
-  duration: string;
-  isCompleted: boolean;
-  videosCount: number;
-  assignmentsCount: number;
-  testsCount: number;
-  notesCount: number;
   createdAt: string;
-  updatedAt: string;
+  meta: {
+    chapterTags: string[];
+  };
+  notes: string[];
+  status: number;
+  tests: string[];
+  videos: string[];
 }
 
 export interface Video {
@@ -108,19 +153,28 @@ interface CourseState {
   currentCourse: Course | null;
   coursesLoading: boolean;
   coursesError: string | null;
+  coursesPage: number;
+  coursesHasMore: boolean;
+  coursesRefreshing: boolean;
 
   // Chapters
   chapters: Chapter[];
   currentChapter: Chapter | null;
   chaptersLoading: boolean;
   chaptersError: string | null;
+  chaptersPage: number;
+  chaptersHasMore: boolean;
+  chaptersRefreshing: boolean;
 
   // Videos
   videos: Video[];
   currentVideo: Video | null;
   videosLoading: boolean;
   videosError: string | null;
-  videoDetails: { [videoId: string]: any }; // Store detailed video data
+  videosPage: number;
+  videosHasMore: boolean;
+  videosRefreshing: boolean;
+  videoDetails: Record<string, any>; // Store detailed video data
   
   // Global loading and error states
   loading: boolean;
@@ -145,15 +199,23 @@ interface CourseState {
   notesError: string | null;
 
   // Actions
-  fetchCourses: () => Promise<void>;
+  fetchCourses: (refresh?: boolean) => Promise<void>;
+  refreshCourses: () => Promise<void>;
+  loadMoreCourses: () => Promise<void>;
   fetchCourse: (courseId: string) => Promise<void>;
   
-  fetchChapters: (courseId: string) => Promise<void>;
+  fetchChapters: (courseId: string, refresh?: boolean) => Promise<void>;
+  refreshChapters: (courseId: string) => Promise<void>;
+  loadMoreChapters: (courseId: string) => Promise<void>;
   fetchChapter: (chapterId: string) => Promise<void>;
   
-  fetchVideos: (chapterId: string) => Promise<void>;
+  fetchVideos: (chapterId: string, refresh?: boolean) => Promise<void>;
+  refreshVideos: (chapterId: string) => Promise<void>;
+  loadMoreVideos: (chapterId: string) => Promise<void>;
   fetchVideo: (videoId: string) => Promise<void>;
   fetchVideoDetails: (videoId: string) => Promise<void>;
+  fetchVideoQuestions: (videoId: string) => Promise<void>;
+  fetchVideoProgress: (videoId: string) => Promise<void>;
   updateVideoProgress: (videoId: string, progress: any) => Promise<void>;
   submitVideoQuestion: (videoId: string, questionId: string, answer: string, questionData: any) => Promise<{ success: boolean; data: any }>;
   
@@ -180,6 +242,7 @@ interface CourseState {
 // Dummy data for fallback
 const dummyCourses: Course[] = [
   {
+    // Legacy fields
     id: '1',
     title: 'React Native Fundamentals',
     description: 'Learn the basics of React Native development',
@@ -188,11 +251,33 @@ const dummyCourses: Course[] = [
     lessons: 25,
     time: '8 hours',
     progress: 65,
-    status: 'in_progress',
+    // Required API fields
+    _id: '1',
+    courseName: 'React Native Fundamentals',
+    courseCode: 'RN101',
+    courseIcon: 'https://via.placeholder.com/60x60/4ECDC4/FFFFFF?text=RN',
+    courseType: 'video',
+    courseDisplay: 'public',
+    communityDisplay: 'enabled',
+    permanentCourse: 'yes',
+    sellPrice: null,
+    discountPrice: null,
+    status: 1,
+    vendorCode: 'VENDOR001',
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
+    chapters: ['ch1', 'ch2', 'ch3'],
+    courseProgress: {
+      assignment: {},
+      chapter: {},
+      course: { overall: { completedCount: 16, totalCount: 25 } },
+      note: {},
+      test: {},
+      video: {}
+    }
   },
   {
+    // Legacy fields
     id: '2',
     title: 'Advanced JavaScript',
     description: 'Master advanced JavaScript concepts',
@@ -201,11 +286,33 @@ const dummyCourses: Course[] = [
     lessons: 18,
     time: '6 hours',
     progress: 30,
-    status: 'in_progress',
+    // Required API fields
+    _id: '2',
+    courseName: 'Advanced JavaScript',
+    courseCode: 'JS201',
+    courseIcon: 'https://via.placeholder.com/60x60/45B7D1/FFFFFF?text=JS',
+    courseType: 'video',
+    courseDisplay: 'public',
+    communityDisplay: 'enabled',
+    permanentCourse: 'yes',
+    sellPrice: null,
+    discountPrice: null,
+    status: 1,
+    vendorCode: 'VENDOR001',
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
+    chapters: ['ch1', 'ch2'],
+    courseProgress: {
+      assignment: {},
+      chapter: {},
+      course: { overall: { completedCount: 5, totalCount: 18 } },
+      note: {},
+      test: {},
+      video: {}
+    }
   },
   {
+    // Legacy fields
     id: '3',
     title: 'Mobile UI/UX Design',
     description: 'Design beautiful mobile interfaces',
@@ -214,16 +321,37 @@ const dummyCourses: Course[] = [
     lessons: 22,
     time: '7 hours',
     progress: 0,
-    status: 'not_started',
+    // Required API fields
+    _id: '3',
+    courseName: 'Mobile UI/UX Design',
+    courseCode: 'UI301',
+    courseIcon: 'https://via.placeholder.com/60x60/96CEB4/FFFFFF?text=UI',
+    courseType: 'video',
+    courseDisplay: 'public',
+    communityDisplay: 'enabled',
+    permanentCourse: 'yes',
+    sellPrice: null,
+    discountPrice: null,
+    status: 0,
+    vendorCode: 'VENDOR001',
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
+    chapters: ['ch1', 'ch2', 'ch3', 'ch4'],
+    courseProgress: {
+      assignment: {},
+      chapter: {},
+      course: { overall: { completedCount: 0, totalCount: 22 } },
+      note: {},
+      test: {},
+      video: {}
+    }
   },
 ];
 
 const dummyChapters: Chapter[] = [
   {
+    // Legacy fields
     id: '1',
-    courseId: '1',
     title: 'Introduction to React Native',
     description: 'Get started with React Native basics',
     order: 1,
@@ -233,12 +361,26 @@ const dummyChapters: Chapter[] = [
     assignmentsCount: 2,
     testsCount: 1,
     notesCount: 3,
-    createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
+    // Required API fields
+    _id: '1',
+    assignments: ['assign1', 'assign2'],
+    chapterComponent: ['Video', 'Assignment', 'Test', 'Note'],
+    chapterIcon: 'https://via.placeholder.com/60x60/4ECDC4/FFFFFF?text=CH1',
+    chapterName: 'Introduction to React Native',
+    courseId: '1',
+    createdAt: '2024-01-01T00:00:00Z',
+    meta: {
+      chapterTags: ['beginner', 'intro']
+    },
+    notes: ['note1', 'note2', 'note3'],
+    status: 1,
+    tests: ['test1'],
+    videos: ['vid1', 'vid2', 'vid3', 'vid4', 'vid5']
   },
   {
+    // Legacy fields
     id: '2',
-    courseId: '1',
     title: 'Components and Props',
     description: 'Learn about React Native components',
     order: 2,
@@ -248,8 +390,22 @@ const dummyChapters: Chapter[] = [
     assignmentsCount: 3,
     testsCount: 2,
     notesCount: 5,
-    createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
+    // Required API fields
+    _id: '2',
+    assignments: ['assign3', 'assign4', 'assign5'],
+    chapterComponent: ['Video', 'Assignment', 'Test', 'Note'],
+    chapterIcon: 'https://via.placeholder.com/60x60/45B7D1/FFFFFF?text=CH2',
+    chapterName: 'Components and Props',
+    courseId: '1',
+    createdAt: '2024-01-01T00:00:00Z',
+    meta: {
+      chapterTags: ['components', 'props']
+    },
+    notes: ['note4', 'note5', 'note6', 'note7', 'note8'],
+    status: 1,
+    tests: ['test2', 'test3'],
+    videos: ['vid6', 'vid7', 'vid8', 'vid9', 'vid10', 'vid11', 'vid12', 'vid13']
   },
 ];
 
@@ -260,16 +416,25 @@ const useCourseStore = create<CourseState>((set, get) => ({
   currentCourse: null,
   coursesLoading: false,
   coursesError: null,
+  coursesPage: 0,
+  coursesHasMore: true,
+  coursesRefreshing: false,
 
   chapters: [],
   currentChapter: null,
   chaptersLoading: false,
   chaptersError: null,
+  chaptersPage: 0,
+  chaptersHasMore: true,
+  chaptersRefreshing: false,
 
   videos: [],
   currentVideo: null,
   videosLoading: false,
   videosError: null,
+  videosPage: 0,
+  videosHasMore: true,
+  videosRefreshing: false,
   videoDetails: {},
   
   // Global loading and error states
@@ -292,22 +457,61 @@ const useCourseStore = create<CourseState>((set, get) => ({
   notesError: null,
 
   // Course actions
-  fetchCourses: async () => {
-    set({ coursesLoading: true, coursesError: null });
+  fetchCourses: async (refresh = false) => {
+    const state = get();
+    
+    // Don't fetch if already loading or no more data (unless refreshing)
+    if (!refresh && (state.coursesLoading || !state.coursesHasMore)) {
+      return;
+    }
+    
+    const page = refresh ? 0 : state.coursesPage;
+    const limit = 10;
+    const skip = page * limit;
+    
+    set({ 
+      coursesLoading: true, 
+      coursesError: null,
+      coursesRefreshing: refresh 
+    });
+    
     try {
-      const response = await apiGet<Course[]>('/courseManagement/course/student');
+      const response = await apiGet(`/courseManagement/course/student?limit=${limit}&skip=${skip}&order=asc&status=1`);
+      
+      // Handle nested response structure
+      const coursesData = response.data?.data || response.data || [];
+      
+      console.log('📚 Courses API Response:', {
+        totalReceived: coursesData.length,
+        page,
+        skip,
+        limit,
+        isRefresh: refresh
+      });
+      
       set({ 
-        courses: response.data,
-        coursesLoading: false 
+        courses: refresh ? coursesData : [...state.courses, ...coursesData],
+        coursesPage: page + 1,
+        coursesHasMore: coursesData.length === limit, // Has more if we got a full page
+        coursesLoading: false,
+        coursesRefreshing: false
       });
     } catch (error: any) {
-      console.log('API failed, using dummy data for courses:', error.message);
+      console.error('❌ Failed to fetch courses:', error);
       set({ 
-        courses: dummyCourses,
+        coursesError: error.message || 'Failed to fetch courses',
         coursesLoading: false,
-        coursesError: null // Don't show error when using dummy data
+        coursesRefreshing: false
       });
     }
+  },
+
+  refreshCourses: async () => {
+    await get().fetchCourses(true);
+  },
+
+  loadMoreCourses: async () => {
+    await get().fetchCourses(false);
   },
 
   fetchCourse: async (courseId: string) => {
@@ -330,23 +534,65 @@ const useCourseStore = create<CourseState>((set, get) => ({
   },
 
   // Chapter actions
-  fetchChapters: async (courseId: string) => {
-    set({ chaptersLoading: true, chaptersError: null });
+  fetchChapters: async (courseId: string, refresh = false) => {
+    const state = get();
+    
+    // Don't fetch if already loading or no more data (unless refreshing)
+    if (!refresh && (state.chaptersLoading || !state.chaptersHasMore)) {
+      return;
+    }
+    
+    const page = refresh ? 0 : state.chaptersPage;
+    const limit = 100; // Using 100 as per your API example
+    const skip = page * limit;
+    
+    set({ 
+      chaptersLoading: true, 
+      chaptersError: null,
+      chaptersRefreshing: refresh 
+    });
+    
     try {
-      const response = await apiGet<Chapter[]>(`/chapter/student/chapters?courseId=${courseId}`);
+      const response = await apiGet(`/chapter/student/chapters?courseId=${courseId}&limit=${limit}&skip=${skip}&order=asc&status=1`);
+      
+      // Handle nested response structure
+      const chaptersData = response.data?.data || response.data || [];
+      
+      console.log('📖 Chapters API Response:', {
+        courseId,
+        totalReceived: chaptersData.length,
+        page,
+        skip,
+        limit,
+        isRefresh: refresh
+      });
+      
       set({ 
-        chapters: response.data,
-        chaptersLoading: false 
+        chapters: refresh ? chaptersData : [...state.chapters, ...chaptersData],
+        chaptersPage: page + 1,
+        chaptersHasMore: chaptersData.length === limit, // Has more if we got a full page
+        chaptersLoading: false,
+        chaptersRefreshing: false
       });
     } catch (error: any) {
-      console.log('API failed, using dummy data for chapters:', error.message);
+      console.error('❌ Failed to fetch chapters:', error);
+      // Fallback to dummy data on error
       const courseChapters = dummyChapters.filter(c => c.courseId === courseId);
       set({ 
-        chapters: courseChapters,
+        chapters: refresh ? courseChapters : [...state.chapters, ...courseChapters],
         chaptersLoading: false,
-        chaptersError: null
+        chaptersRefreshing: false,
+        chaptersError: null // Don't show error if we have fallback data
       });
     }
+  },
+
+  refreshChapters: async (courseId: string) => {
+    await get().fetchChapters(courseId, true);
+  },
+
+  loadMoreChapters: async (courseId: string) => {
+    await get().fetchChapters(courseId, false);
   },
 
   fetchChapter: async (chapterId: string) => {
@@ -369,17 +615,68 @@ const useCourseStore = create<CourseState>((set, get) => ({
   },
 
   // Video actions
-  fetchVideos: async (chapterId: string) => {
-    set({ videosLoading: true, videosError: null });
+  fetchVideos: async (chapterId: string, refresh = false) => {
+    const state = get();
+    
+    // Don't fetch if already loading or no more data (unless refreshing)
+    if (!refresh && (state.videosLoading || !state.videosHasMore)) {
+      return;
+    }
+    
+    const page = refresh ? 0 : state.videosPage;
+    const limit = 100; // Using 100 as per your API example
+    const skip = page * limit;
+    
+    set({ 
+      videosLoading: true, 
+      videosError: null,
+      videosRefreshing: refresh 
+    });
+    
     try {
-      const response = await apiGet<Video[]>(`/video/student/videos?chapterId=${chapterId}`);
+      const response = await apiGet(`/video/student/videos?chapterId=${chapterId}&limit=${limit}&skip=${skip}&order=asc&status=1`);
+      
+      // Handle nested response structure
+      const videosData = response.data?.data || response.data || [];
+      
+      console.log('🎥 Videos API Response:', {
+        chapterId,
+        totalReceived: videosData.length,
+        page,
+        skip,
+        limit,
+        isRefresh: refresh
+      });
+      
+      // Map API response to Video interface
+      const mappedVideos: Video[] = videosData.map((video: any) => ({
+        id: video._id,
+        chapterId: video.chapterId,
+        title: video.videoTitle,
+        description: video.videoDescription?.replace(/<[^>]*>/g, '') || '', // Remove HTML tags
+        url: video.videoUrl,
+        thumbnail: video.videoThumbnail,
+        duration: video.duration ? `${Math.floor(video.duration / 60)}:${(video.duration % 60).toString().padStart(2, '0')}` : '0:00',
+        videoType: video.videoType,
+        questions: video.questions || [],
+        resources: video.videoResources || [],
+        order: video.order || 0,
+        isWatched: false, // This should come from progress API
+        watchedDuration: 0, // This should come from progress API
+        createdAt: video.createdAt,
+        updatedAt: video.updatedAt || video.createdAt,
+      }));
+      
       set({ 
-        videos: response.data,
-        videosLoading: false 
+        videos: refresh ? mappedVideos : [...state.videos, ...mappedVideos],
+        videosPage: page + 1,
+        videosHasMore: videosData.length === limit, // Has more if we got a full page
+        videosLoading: false,
+        videosRefreshing: false
       });
     } catch (error: any) {
-      console.log('API failed, using dummy data for videos:', error.message);
-      // Create dummy videos for the chapter
+      console.error('❌ Failed to fetch videos:', error);
+      // Fallback to dummy data on error
       const dummyVideos: Video[] = [
         {
           id: '1',
@@ -396,11 +693,20 @@ const useCourseStore = create<CourseState>((set, get) => ({
         },
       ];
       set({ 
-        videos: dummyVideos,
+        videos: refresh ? dummyVideos : [...state.videos, ...dummyVideos],
         videosLoading: false,
-        videosError: null
+        videosRefreshing: false,
+        videosError: null // Don't show error if we have fallback data
       });
     }
+  },
+
+  refreshVideos: async (chapterId: string) => {
+    await get().fetchVideos(chapterId, true);
+  },
+
+  loadMoreVideos: async (chapterId: string) => {
+    await get().fetchVideos(chapterId, false);
   },
 
   fetchVideo: async (videoId: string) => {
@@ -462,6 +768,64 @@ const useCourseStore = create<CourseState>((set, get) => ({
         loading: false,
         error: 'Using sample data - API unavailable'
       }));
+    }
+  },
+
+  fetchVideoQuestions: async (videoId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const response = await apiGet(`/question/student/questions?videoId=${videoId}&limit=10&skip=0&order=asc&status=10`);
+      
+      // Handle nested response structure
+      const questionsData = response.data?.data || response.data || [];
+      
+      console.log('🎯 Video Questions API Response:', {
+        videoId,
+        totalQuestions: questionsData.length,
+        questions: questionsData
+      });
+      
+      // Store questions in videoDetails
+      set(state => ({ 
+        videoDetails: {
+          ...state.videoDetails,
+          [videoId]: {
+            ...state.videoDetails[videoId],
+            questions: questionsData
+          }
+        },
+        loading: false 
+      }));
+    } catch (error: any) {
+      console.error('❌ Failed to fetch video questions:', error);
+      set({ loading: false, error: 'Failed to fetch video questions' });
+    }
+  },
+
+  fetchVideoProgress: async (videoId: string) => {
+    set({ loading: true, error: null });
+    try {
+      const response = await apiGet(`/video/student/submit/${videoId}`);
+      
+      console.log('📊 Video Progress API Response:', {
+        videoId,
+        progress: response.data
+      });
+      
+      // Store progress in videoDetails
+      set(state => ({ 
+        videoDetails: {
+          ...state.videoDetails,
+          [videoId]: {
+            ...state.videoDetails[videoId],
+            progress: response.data
+          }
+        },
+        loading: false 
+      }));
+    } catch (error: any) {
+      console.error('❌ Failed to fetch video progress:', error);
+      set({ loading: false, error: 'Failed to fetch video progress' });
     }
   },
 

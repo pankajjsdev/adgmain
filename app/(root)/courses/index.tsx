@@ -22,27 +22,43 @@ function renderCourse({ item, onPress, colors, spacing }: {
 }) {
   const localStyles = getLocalStyles(colors, spacing);
   
+  // Handle both old and new API response structure
+  const courseId = item._id || item.id;
+  const courseName = item.courseName || item.title;
+  const courseIcon = item.courseIcon || item.image;
+  const courseCode = item.courseCode || '';
+  
+  // Calculate progress from courseProgress if available
+  let progressPercentage = 0;
+  if (item.courseProgress?.course?.overall) {
+    const { completedCount, totalCount } = item.courseProgress.course.overall;
+    progressPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  } else if (typeof item.progress === 'number') {
+    progressPercentage = item.progress;
+  }
+  
   return (
-    <TouchableOpacity style={localStyles.card} onPress={() => onPress(item.id)}>
-      {item.image && <Image source={item.image} style={localStyles.image} />}
+    <TouchableOpacity style={localStyles.card} onPress={() => courseId && onPress(courseId)}>
+      {courseIcon && (
+        <Image 
+          source={{ uri: typeof courseIcon === 'string' ? courseIcon : courseIcon.uri }} 
+          style={localStyles.image} 
+        />
+      )}
       <View style={localStyles.cardTextContainer}>
-        <Text style={localStyles.title}>{item.title}</Text>
-        <Text style={localStyles.subtitle}>{item.lessons + ' Lessons • ' + item.time}</Text>
-        {item.description && (
-          <Text style={localStyles.description}>{item.description}</Text>
+        <Text style={localStyles.title}>{courseName}</Text>
+        {courseCode && (
+          <Text style={localStyles.subtitle}>Code: {courseCode}</Text>
         )}
-        {item.instructor && (
-          <View style={localStyles.instructorContainer}>
-            <Ionicons name="person-outline" size={14} color={colors.icon.secondary} />
-            <Text style={localStyles.instructorText}>{item.instructor}</Text>
-          </View>
+        {item.chapters && (
+          <Text style={localStyles.subtitle}>{item.chapters.length} Chapters</Text>
         )}
-        {typeof item.progress === 'number' && item.progress > 0 && (
+        {progressPercentage > 0 && (
           <View style={localStyles.progressContainer}>
             <View style={localStyles.progressBar}>
-              <View style={[localStyles.progressFill, { width: `${item.progress}%` }]} />
+              <View style={[localStyles.progressFill, { width: `${progressPercentage}%` }]} />
             </View>
-            <Text style={localStyles.progressText}>{item.progress}% complete</Text>
+            <Text style={localStyles.progressText}>{progressPercentage}% complete</Text>
           </View>
         )}
       </View>
@@ -60,7 +76,11 @@ export default function CoursesScreen() {
     courses,
     coursesLoading,
     coursesError,
+    coursesHasMore,
+    coursesRefreshing,
     fetchCourses,
+    refreshCourses,
+    loadMoreCourses,
     clearError,
   } = useCourseStore();
 
@@ -83,7 +103,10 @@ export default function CoursesScreen() {
   }, [loadCourses]);
 
   const handleCoursePress = (courseId: string) => {
-    router.push(`/courses/${courseId}`);
+    if (courseId) {
+      // Navigate directly to chapter list for this course
+      router.push(`/courses/${courseId}/chapters`);
+    }
   };
 
   return (
@@ -111,13 +134,30 @@ export default function CoursesScreen() {
         <FlatList
           data={courses}
           renderItem={({ item }) => renderCourse({ item, onPress: handleCoursePress, colors, spacing })}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item._id || item.id || Math.random().toString()}
           contentContainerStyle={localStyles.listContent}
           showsVerticalScrollIndicator={false}
+          onEndReached={() => {
+            if (!coursesLoading && coursesHasMore) {
+              loadMoreCourses();
+            }
+          }}
+          onEndReachedThreshold={0.1}
+          ListFooterComponent={() => {
+            if (coursesLoading && courses.length > 0) {
+              return (
+                <View style={localStyles.loadingFooter}>
+                  <ActivityIndicator size="small" color={colors.brand.primary} />
+                  <Text style={localStyles.loadingFooterText}>Loading more courses...</Text>
+                </View>
+              );
+            }
+            return null;
+          }}
           refreshControl={
             <RefreshControl
-              refreshing={coursesLoading}
-              onRefresh={loadCourses}
+              refreshing={coursesRefreshing}
+              onRefresh={() => refreshCourses()}
               colors={[colors.brand.primary]}
               tintColor={colors.brand.primary}
             />
@@ -223,5 +263,17 @@ const getLocalStyles = (colors: any, spacing: any) => ({
     fontSize: 16,
     fontWeight: '600' as const,
     textAlign: 'center' as const,
+  },
+  loadingFooter: {
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.base,
+  },
+  loadingFooterText: {
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    color: colors.text.secondary,
   },
 });

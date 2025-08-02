@@ -66,11 +66,20 @@ const useAuthStore = create<AuthState>((set, get) => ({
       console.log('Login response:', response); // Debugging
       
       if (response.success && response.data) {
-        // Assuming your login API returns user data and a token
-        const { user, token, refreshToken } = response.data; // Adjust based on your API response structure
-        get().setToken(token); // Use setToken action
+        // Extract tokens from API response (API returns accessToken, not token)
+        const { user, accessToken, refreshToken } = response.data;
+        
+        console.log('🔑 Extracted tokens:', { 
+          hasAccessToken: !!accessToken, 
+          hasRefreshToken: !!refreshToken, 
+          hasUser: !!user 
+        });
+        
+        get().setToken(accessToken); // Use accessToken from API
         get().setRefreshToken(refreshToken); // Use setRefreshToken action
-        get().setUser(user); // Use setUser action
+        if (user) {
+          get().setUser(user); // Use setUser action only if user data exists
+        }
         set({ isAuthenticated: true, loading: false, error: null }); // Clear error on success
       } else {
         // API returned success: false

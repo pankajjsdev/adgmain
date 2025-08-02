@@ -27,7 +27,11 @@ export default function VideoList() {
     videos,
     videosLoading,
     videosError,
+    videosHasMore,
+    videosRefreshing,
     fetchVideos,
+    refreshVideos,
+    loadMoreVideos,
     updateVideoProgress,
     clearError,
   } = useCourseStore();
@@ -147,10 +151,27 @@ export default function VideoList() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={localStyles.listContainer}
         showsVerticalScrollIndicator={false}
+        onEndReached={() => {
+          if (!videosLoading && videosHasMore && chapterId) {
+            loadMoreVideos(chapterId as string);
+          }
+        }}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={() => {
+          if (videosLoading && videos.length > 0) {
+            return (
+              <View style={localStyles.loadingFooter}>
+                <ActivityIndicator size="small" color={colors.brand.primary} />
+                <Text style={localStyles.loadingFooterText}>Loading more videos...</Text>
+              </View>
+            );
+          }
+          return null;
+        }}
         refreshControl={
           <RefreshControl
-            refreshing={videosLoading}
-            onRefresh={loadVideos}
+            refreshing={videosRefreshing}
+            onRefresh={() => chapterId && refreshVideos(chapterId as string)}
             colors={[colors.brand.primary]}
             tintColor={colors.brand.primary}
           />
@@ -278,5 +299,17 @@ const getLocalStyles = (colors: any, spacing: any) => ({
     justifyContent: 'center' as const,
     paddingVertical: spacing.xl * 2,
     gap: spacing.md,
+  },
+  loadingFooter: {
+    flexDirection: 'row' as const,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.base,
+  },
+  loadingFooterText: {
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    color: colors.text.secondary,
   },
 });

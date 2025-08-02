@@ -48,6 +48,7 @@ export interface VideoData {
   isSubmitSingleEveryTime: boolean;
   videoType: "basic" | "trackable" | "trackableRandom" | "interactive";
   videoResources: string[];
+  progress?: any; // Video progress data from API
   meta?: {
     videoType?: number;
     timeToShowQuestion: string; // Time in seconds when the question should be shown

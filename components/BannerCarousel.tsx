@@ -1,6 +1,6 @@
 import { apiGet } from '@/api';
-import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { useAnalytics, useComponentAnalytics } from '@/hooks/useAnalytics';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, TouchableOpacity, View } from 'react-native';
@@ -10,8 +10,12 @@ const { width: screenWidth } = Dimensions.get('window');
 
 interface CarouselItemData {
   _id: string;
-  src: string;
   link: string;
+  place: string;
+  priority: number;
+  src: string;
+  status: number;
+  type: string;
 }
 
 interface BannerCarouselProps {
@@ -35,20 +39,31 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ height = 200 }) => {
       setLoading(true);
       trackComponentEvent('banner_fetch_started', { height });
       
-      const response = await apiGet<CarouselItemData[]>('/banner/student/banners?limit=50&skip=0&order=asc&status=10');
+      const response = await apiGet<CarouselItemData[]>('/banner/student/banners?limit=10&skip=0&order=asc&status=10');
       
-      if (response.success && response.data) {
-        setBanners(response.data);
+      console.log('Banner API response:', response);
+
+      if (response.success && response.data && Array.isArray(response.data)) {
+        // Filter banners for homePage and sort by priority
+        const homePageBanners = response.data
+          .filter(banner => banner.place === 'homePage' && banner.status === 1)
+          .sort((a, b) => a.priority - b.priority);
+        
+        setBanners(homePageBanners);
         track(events.HOME_BANNER_VIEWED, {
-          banner_count: response.data.length,
+          banner_count: homePageBanners.length,
+          total_banners: response.data.length,
           carousel_height: height,
           fetch_success: true
         });
+        
+        console.log(`Loaded ${homePageBanners.length} home page banners`);
       } else {
         setError('Failed to load banners');
         trackComponentEvent('banner_fetch_failed', {
-          error: 'API response unsuccessful',
-          response_success: response.success
+          error: 'API response unsuccessful or no data',
+          response_success: response.success,
+          has_data: !!response.data
         });
       }
     } catch (err: any) {
@@ -139,17 +154,20 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({ height = 200 }) => {
     );
   }
 
+  // Ensure banners is always an array to prevent map errors
+  const safeBanners = Array.isArray(banners) ? banners : [];
+
   return (
     <View style={localStyles.container}>
       <Carousel
         width={screenWidth - (spacing.base * 2)}
         height={height}
-        data={banners}
+        data={safeBanners}
         renderItem={renderBannerItem}
-        autoPlay={true}
+        autoPlay={safeBanners.length > 0}
         autoPlayInterval={4000}
         scrollAnimationDuration={800}
-        loop={banners.length > 1}
+        loop={safeBanners.length > 1}
         pagingEnabled={true}
         snapEnabled={true}
         mode="parallax"
