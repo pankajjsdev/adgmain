@@ -10,11 +10,11 @@ const clients = {
     slug: 'adgclasses',
     displayName: 'ADG Classes',
     description: 'Advanced Digital Growth Classes - Learn, Grow, Succeed',
-    
+
     // App Store Identifiers
     bundleIdentifier: 'com.adg.classes',
     androidPackage: 'com.adg.classes',
-    
+
     // Branding
     colors: {
       primary: '#007AFF',
@@ -27,7 +27,6 @@ const clients = {
       success: '#34C759',
       warning: '#FF9500',
       error: '#FF3B30',
-      // Theme specific colors
       light: {
         primary: '#007AFF',
         background: '#FFFFFF',
@@ -43,7 +42,7 @@ const clients = {
         textSecondary: '#8E8E93',
       }
     },
-    
+
     // API Configuration
     api: {
       baseUrl: 'https://api.adgclasses.com',
@@ -61,7 +60,7 @@ const clients = {
         students: '/student'
       }
     },
-    
+
     // Assets paths
     assets: {
       icon: './assets/clients/adg/icon.png',
@@ -70,22 +69,22 @@ const clients = {
       logo: './assets/clients/adg/logo.png',
       favicon: './assets/clients/adg/favicon.png'
     },
-    
+
     // App Store Configuration
     appStore: {
       appleId: '1234567890', // Replace with actual Apple ID
       googlePlayId: 'com.adg.classes' // Same as androidPackage
     },
-    
+
     // Google OAuth Configuration
     googleAuth: {
       webClientId: 'YOUR_ADG_WEB_CLIENT_ID.apps.googleusercontent.com',
       iosClientId: 'YOUR_ADG_IOS_CLIENT_ID.apps.googleusercontent.com',
       androidClientId: 'YOUR_ADG_ANDROID_CLIENT_ID.apps.googleusercontent.com',
       scopes: ['openid', 'profile', 'email'],
-      hostedDomain: null, // Optional: restrict to specific domain
+      hostedDomain: null
     },
-    
+
     // Features
     features: {
       analytics: true,
@@ -95,22 +94,61 @@ const clients = {
       biometricAuth: true
     },
 
-    // Google OAuth Configuration
-    googleAuth: {
-      webClientId: 'YOUR_TECHEDU_WEB_CLIENT_ID.apps.googleusercontent.com',
-      iosClientId: 'YOUR_TECHEDU_IOS_CLIENT_ID.apps.googleusercontent.com',
-      androidClientId: 'YOUR_TECHEDU_ANDROID_CLIENT_ID.apps.googleusercontent.com',
-      scopes: ['openid', 'profile', 'email'],
-      hostedDomain: null, // Optional: restrict to specific domain
-    },
-    
     // Contact & Support
     contact: {
-      email: 'support@techedu.pro',
-      phone: '+1-800-TECHEDU',
-      website: 'https://techedu.pro',
-      privacyPolicy: 'https://techedu.pro/privacy',
-      termsOfService: 'https://techedu.pro/terms'
+      email: 'support@adgclasses.com',
+      phone: '+1-800-ADG-HELP',
+      website: 'https://adgclasses.com',
+      privacyPolicy: 'https://adgclasses.com/privacy',
+      termsOfService: 'https://adgclasses.com/terms'
+    },
+
+    // Onboarding & UI Configuration
+    onboarding: {
+      enabled: true,
+      screens: [
+        {
+          id: 'welcome',
+          title: 'Welcome to ADG Classes',
+          subtitle: 'Your premier destination for quality education',
+          description: 'Join thousands of students who have transformed their careers with our comprehensive courses.',
+          image: 'onboarding-welcome.png',
+          backgroundColor: '#007AFF',
+          textColor: '#FFFFFF'
+        },
+        {
+          id: 'features',
+          title: 'Learn at Your Pace',
+          subtitle: 'Flexible learning designed for you',
+          description: 'Access courses anytime, anywhere. Learn from industry experts with our interactive content.',
+          image: 'onboarding-features.png',
+          backgroundColor: '#34C759',
+          textColor: '#FFFFFF'
+        },
+        {
+          id: 'community',
+          title: 'Join Our Community',
+          subtitle: 'Connect with fellow learners',
+          description: 'Be part of a vibrant learning community. Share knowledge and grow together.',
+          image: 'onboarding-community.png',
+          backgroundColor: '#FF9500',
+          textColor: '#FFFFFF'
+        }
+      ],
+      skipEnabled: true,
+      showProgress: true
+    },
+
+    // Splash Screen Configuration
+    splash: {
+      backgroundColor: '#007AFF',
+      logoImage: 'splash-logo.png',
+      brandText: 'ADG Classes',
+      tagline: 'Excellence in Education',
+      showBrandText: true,
+      showTagline: true,
+      animationType: 'fade', // 'fade', 'slide', 'bounce'
+      duration: 2000
     }
   },
 
@@ -120,10 +158,8 @@ const clients = {
     slug: 'techedu-pro',
     displayName: 'TechEdu Pro',
     description: 'Professional Technology Education Platform',
-    
     bundleIdentifier: 'com.techedu.pro',
     androidPackage: 'com.techedu.pro',
-    
     colors: {
       primary: '#6C5CE7',
       secondary: '#A29BFE',
@@ -150,7 +186,6 @@ const clients = {
         textSecondary: '#B2BEC3',
       }
     },
-    
     api: {
       baseUrl: 'https://api.techedu.pro',
       version: 'v1',
@@ -167,7 +202,6 @@ const clients = {
         students: '/student'
       }
     },
-    
     assets: {
       icon: './assets/clients/techedu/icon.png',
       adaptiveIcon: './assets/clients/techedu/adaptive-icon.png',
@@ -175,12 +209,10 @@ const clients = {
       logo: './assets/clients/techedu/logo.png',
       favicon: './assets/clients/techedu/favicon.png'
     },
-    
     appStore: {
       appleId: '2345678901',
       googlePlayId: 'com.techedu.pro'
     },
-    
     features: {
       analytics: true,
       pushNotifications: true,
@@ -188,7 +220,6 @@ const clients = {
       darkMode: true,
       biometricAuth: false
     },
-    
     contact: {
       email: 'support@techedu.pro',
       phone: '+1-800-TECH-EDU',
@@ -204,10 +235,8 @@ const clients = {
     slug: 'skillboost-academy',
     displayName: 'SkillBoost Academy',
     description: 'Boost Your Skills with Expert-Led Courses',
-    
     bundleIdentifier: 'com.skillboost.academy',
     androidPackage: 'com.skillboost.academy',
-    
     colors: {
       primary: '#FF6B6B',
       secondary: '#4ECDC4',
@@ -234,7 +263,6 @@ const clients = {
         textSecondary: '#BDC3C7',
       }
     },
-    
     api: {
       baseUrl: 'https://api.skillboost.academy',
       version: 'v1',
@@ -251,7 +279,6 @@ const clients = {
         students: '/student'
       }
     },
-    
     assets: {
       icon: './assets/clients/skillboost/icon.png',
       adaptiveIcon: './assets/clients/skillboost/adaptive-icon.png',
@@ -259,12 +286,10 @@ const clients = {
       logo: './assets/clients/skillboost/logo.png',
       favicon: './assets/clients/skillboost/favicon.png'
     },
-    
     appStore: {
       appleId: '3456789012',
       googlePlayId: 'com.skillboost.academy'
     },
-    
     features: {
       analytics: true,
       pushNotifications: true,
@@ -272,7 +297,6 @@ const clients = {
       darkMode: true,
       biometricAuth: true
     },
-    
     contact: {
       email: 'hello@skillboost.academy',
       phone: '+1-800-SKILL-UP',
@@ -288,10 +312,8 @@ const clients = {
     slug: 'edutech-solutions',
     displayName: 'EduTech Solutions',
     description: 'Innovative Educational Technology Solutions',
-    
     bundleIdentifier: 'com.edutech.solutions',
     androidPackage: 'com.edutech.solutions',
-    
     colors: {
       primary: '#2E7D32',
       secondary: '#4CAF50',
@@ -318,7 +340,6 @@ const clients = {
         textSecondary: '#81C784',
       }
     },
-    
     api: {
       baseUrl: 'https://api.edutech-solutions.com',
       version: 'v1',
@@ -335,7 +356,6 @@ const clients = {
         students: '/student'
       }
     },
-    
     assets: {
       icon: './assets/clients/edutech/icon.png',
       adaptiveIcon: './assets/clients/edutech/adaptive-icon.png',
@@ -343,12 +363,10 @@ const clients = {
       logo: './assets/clients/edutech/logo.png',
       favicon: './assets/clients/edutech/favicon.png'
     },
-    
     appStore: {
       appleId: '4567890123',
       googlePlayId: 'com.edutech.solutions'
     },
-    
     features: {
       analytics: true,
       pushNotifications: true,
@@ -356,7 +374,6 @@ const clients = {
       darkMode: true,
       biometricAuth: true
     },
-    
     contact: {
       email: 'support@edutech-solutions.com',
       phone: '+1-800-EDU-TECH',
@@ -397,7 +414,7 @@ const getAvailableClients = () => {
 const validateClientConfig = (clientName) => {
   const config = clients[clientName];
   if (!config) return false;
-  
+
   // Check required fields
   const requiredFields = ['name', 'bundleIdentifier', 'androidPackage', 'api', 'assets'];
   return requiredFields.every(field => config[field]);

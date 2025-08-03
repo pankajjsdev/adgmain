@@ -1,0 +1,304 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { getClientConfig, getAvailableClients } from '@/utils/clientConfig';
+import { AppInitializerUtils } from './AppInitializer';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+
+export default function ClientBrandingTest() {
+  const { styles: globalStyles, colors } = useGlobalStyles();
+  const [selectedClient, setSelectedClient] = useState('adg');
+  const clientConfig = getClientConfig();
+  const availableClients = getAvailableClients();
+
+  const handleResetOnboarding = async () => {
+    try {
+      await AppInitializerUtils.resetOnboarding(selectedClient);
+      Alert.alert('Success', `Onboarding reset for ${selectedClient}`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to reset onboarding');
+    }
+  };
+
+  const handleResetAllOnboarding = async () => {
+    try {
+      await AppInitializerUtils.resetAllOnboarding();
+      Alert.alert('Success', 'All onboarding data reset');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to reset all onboarding');
+    }
+  };
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const status = await AppInitializerUtils.checkOnboardingStatus(selectedClient);
+      Alert.alert('Onboarding Status', `${selectedClient}: ${status ? 'Completed' : 'Not completed'}`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to check onboarding status');
+    }
+  };
+
+  return (
+    <SafeAreaView style={[globalStyles.container, { backgroundColor: colors.background.primary }]}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <Text style={[globalStyles.heading1, { color: colors.text.primary, textAlign: 'center', marginBottom: 20 }]}>
+          Client Branding Test
+        </Text>
+
+        {/* Current Client Info */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Current Client Configuration
+          </Text>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Name:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>{clientConfig.name}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>App Name:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>{clientConfig.appName}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Primary Color:</Text>
+            <View style={[styles.colorBox, { backgroundColor: clientConfig.colors.primary }]} />
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>{clientConfig.colors.primary}</Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>API Base:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>{clientConfig.api.baseUrl}</Text>
+          </View>
+        </View>
+
+        {/* Feature Flags */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Feature Flags
+          </Text>
+          
+          <View style={styles.featureRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Social Login:</Text>
+            <View style={[styles.statusBadge, { backgroundColor: clientConfig.features.socialLogin ? colors.status.success : colors.status.error }]}>
+              <Text style={[globalStyles.bodySmall, { color: '#FFFFFF' }]}>
+                {clientConfig.features.socialLogin ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.featureRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Dark Mode:</Text>
+            <View style={[styles.statusBadge, { backgroundColor: clientConfig.features.darkMode ? colors.status.success : colors.status.error }]}>
+              <Text style={[globalStyles.bodySmall, { color: '#FFFFFF' }]}>
+                {clientConfig.features.darkMode ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.featureRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Biometric Auth:</Text>
+            <View style={[styles.statusBadge, { backgroundColor: clientConfig.features.biometricAuth ? colors.status.success : colors.status.error }]}>
+              <Text style={[globalStyles.bodySmall, { color: '#FFFFFF' }]}>
+                {clientConfig.features.biometricAuth ? 'Enabled' : 'Disabled'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Onboarding Configuration */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Onboarding Configuration
+          </Text>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Enabled:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>
+              {clientConfig.onboarding?.enabled ? 'Yes' : 'No'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Screens:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>
+              {clientConfig.onboarding?.screens?.length || 0}
+            </Text>
+          </View>
+        </View>
+
+        {/* Splash Configuration */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Splash Screen Configuration
+          </Text>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Enabled:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>
+              {clientConfig.splash?.enabled ? 'Yes' : 'No'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Animation:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>
+              {clientConfig.splash?.animationType || 'fade'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Duration:</Text>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.primary }]}>
+              {clientConfig.splash?.duration || 2000}ms
+            </Text>
+          </View>
+        </View>
+
+        {/* Google OAuth Configuration */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Google OAuth Configuration
+          </Text>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Web Client ID:</Text>
+            <Text style={[globalStyles.bodySmall, { color: colors.text.primary, flex: 1 }]} numberOfLines={1}>
+              {clientConfig.googleAuth?.webClientId || 'Not configured'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>iOS Client ID:</Text>
+            <Text style={[globalStyles.bodySmall, { color: colors.text.primary, flex: 1 }]} numberOfLines={1}>
+              {clientConfig.googleAuth?.iosClientId || 'Not configured'}
+            </Text>
+          </View>
+          
+          <View style={styles.infoRow}>
+            <Text style={[globalStyles.bodyMedium, { color: colors.text.secondary }]}>Android Client ID:</Text>
+            <Text style={[globalStyles.bodySmall, { color: colors.text.primary, flex: 1 }]} numberOfLines={1}>
+              {clientConfig.googleAuth?.androidClientId || 'Not configured'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Client Selector */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Test Other Clients
+          </Text>
+          
+          <View style={styles.clientGrid}>
+            {availableClients.map((client) => (
+              <TouchableOpacity
+                key={client}
+                style={[
+                  styles.clientButton,
+                  {
+                    backgroundColor: selectedClient === client ? colors.primary : colors.surface.secondary,
+                    borderColor: colors.border.primary,
+                  }
+                ]}
+                onPress={() => setSelectedClient(client)}
+              >
+                <Text style={[
+                  globalStyles.bodyMedium,
+                  { color: selectedClient === client ? '#FFFFFF' : colors.text.primary }
+                ]}>
+                  {client.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Test Actions */}
+        <View style={[styles.section, { backgroundColor: colors.surface.card }]}>
+          <Text style={[globalStyles.heading3, { color: colors.text.primary, marginBottom: 15 }]}>
+            Test Actions
+          </Text>
+          
+          <TouchableOpacity
+            style={[globalStyles.button.primary, { marginBottom: 10 }]}
+            onPress={checkOnboardingStatus}
+          >
+            <Text style={globalStyles.button.primaryText}>Check Onboarding Status</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[globalStyles.button.secondary, { marginBottom: 10 }]}
+            onPress={handleResetOnboarding}
+          >
+            <Text style={globalStyles.button.secondaryText}>Reset Onboarding for {selectedClient}</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[globalStyles.button.danger, { marginBottom: 10 }]}
+            onPress={handleResetAllOnboarding}
+          >
+            <Text style={globalStyles.button.dangerText}>Reset All Onboarding</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 20,
+  },
+  section: {
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  colorBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    marginHorizontal: 10,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  clientGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  clientButton: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+});

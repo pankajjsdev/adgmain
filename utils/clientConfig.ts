@@ -71,6 +71,31 @@ export interface ClientConfig {
     privacyPolicy: string;
     termsOfService: string;
   };
+  onboarding: {
+    enabled: boolean;
+    screens: {
+      id: string;
+      title: string;
+      subtitle: string;
+      description: string;
+      image: string;
+      backgroundColor: string;
+      textColor: string;
+    }[];
+    skipEnabled: boolean;
+    showProgress: boolean;
+  };
+  splash: {
+    backgroundColor: string;
+    logoImage: string;
+    brandText: string;
+    tagline: string;
+    showBrandText: boolean;
+    showTagline: boolean;
+    animationType: 'fade' | 'slide' | 'bounce';
+    duration: number;
+    textColor?: string;
+  };
   appStore: {
     appleId: string;
     googlePlayId: string;
@@ -238,11 +263,63 @@ const getFallbackConfig = (): ClientConfig => ({
     privacyPolicy: 'https://adgclasses.com/privacy',
     termsOfService: 'https://adgclasses.com/terms'
   },
+  onboarding: {
+    enabled: true,
+    screens: [
+      {
+        id: 'welcome',
+        title: 'Welcome to Learning App',
+        subtitle: 'Your learning journey starts here',
+        description: 'Discover amazing courses and grow your skills.',
+        image: 'onboarding-welcome.png',
+        backgroundColor: '#007AFF',
+        textColor: '#FFFFFF'
+      }
+    ],
+    skipEnabled: true,
+    showProgress: true
+  },
+  splash: {
+    backgroundColor: '#007AFF',
+    logoImage: 'splash-logo.png',
+    brandText: 'Learning App',
+    tagline: 'Learn. Grow. Succeed.',
+    showBrandText: true,
+    showTagline: true,
+    animationType: 'fade' as const,
+    duration: 2000,
+    textColor: '#FFFFFF'
+  },
   appStore: {
     appleId: '1234567890',
     googlePlayId: 'com.adg.classes'
   }
 });
+
+/**
+ * Get all available client names
+ */
+export const getAvailableClients = (): string[] => {
+  // In a real implementation, this would read from the clients config
+  // For now, return the known client names
+  return ['adg', 'techedu', 'skillboost'];
+};
+
+/**
+ * Get client configuration by name (for testing purposes)
+ */
+export const getClientConfigByName = (clientName: string): ClientConfig => {
+  // This is a simplified version for testing
+  // In production, you'd want to load the actual client config
+  const config = getClientConfig();
+  
+  // Return current config with modified name for testing
+  return {
+    ...config,
+    name: clientName,
+    displayName: `${clientName.toUpperCase()} App`
+  };
+};
 
 /**
  * Development helper to log current configuration
