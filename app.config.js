@@ -147,7 +147,7 @@ export default ({ config }) => ({
           buildToolsVersion: '34.0.0'
         },
         ios: {
-          deploymentTarget: '13.0'
+          deploymentTarget: '15.1'
         }
       }
     ]

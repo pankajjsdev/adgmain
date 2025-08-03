@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { Stack } from 'expo-router';
-import { ThemedText } from '@/components/ThemedText'; // Adjust import path
 import { apiGet } from '@/api'; // Import your API helper
+import { ThemedText } from '@/components/ThemedText'; // Adjust import path
 import useAuthStore from '@/store/authStore'; // Import your auth store to potentially use user data from store
+import { Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 interface UserProfile { // Define a type for your user profile data
   id: string;
@@ -23,7 +23,7 @@ export default function ProfileScreen() {
       try {
         setLoading(true);
         // Fetch user profile from the API endpoint
-        const response = await apiGet<UserProfile>('/profile'); // Use your /profile endpoint
+        const response = await apiGet<UserProfile>('/student/profile'); // Use your /profile endpoint
         if (response.success) {
           setUserProfile(response.data); // Adjust based on your API response structure
           // Optionally update the user data in the auth store here if it's more complete than the initial login data
