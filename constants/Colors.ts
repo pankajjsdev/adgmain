@@ -60,6 +60,7 @@ export const Colors = {
       elevated: '#FFFFFF',
       card: '#FFFFFF',
       modal: '#FFFFFF',
+      overlay: 'rgba(0, 0, 0, 0.5)',
     },
     
     // Border Colors
@@ -167,6 +168,7 @@ export const Colors = {
       elevated: neutral[800],
       card: neutral[900],
       modal: neutral[800],
+      overlay: 'rgba(0, 0, 0, 0.7)',
     },
     
     // Border Colors

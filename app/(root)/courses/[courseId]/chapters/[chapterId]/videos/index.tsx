@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import useCourseStore, { Video } from '@/store/courseStore';
@@ -29,9 +29,11 @@ export default function VideoList() {
     videosError,
     videosHasMore,
     videosRefreshing,
+    currentChapter,
     fetchVideos,
     refreshVideos,
     loadMoreVideos,
+    fetchChapter,
     updateVideoProgress,
     clearError,
   } = useCourseStore();
@@ -40,6 +42,8 @@ export default function VideoList() {
     if (!chapterId) return;
     
     try {
+      // Fetch chapter details first to get the chapter name for header
+      await fetchChapter(chapterId as string);
       await fetchVideos(chapterId as string);
     } catch {
       Alert.alert(
@@ -50,11 +54,22 @@ export default function VideoList() {
         ]
       );
     }
-  }, [chapterId, fetchVideos, clearError]);
+  }, [chapterId, fetchChapter, fetchVideos, clearError]);
 
   useEffect(() => {
     loadVideos();
   }, [loadVideos]);
+
+  // Navigation for dynamic header updates
+  const navigation = useNavigation();
+
+  // Update header title when chapter data is available
+  useEffect(() => {
+    if (currentChapter) {
+      const title = currentChapter.chapterName || currentChapter.title || 'Videos';
+      navigation.setOptions({ title });
+    }
+  }, [currentChapter, navigation]);
 
   const handleVideoPress = async (video: Video) => {
     // Update video progress when user starts watching
@@ -111,7 +126,9 @@ export default function VideoList() {
   if (videosLoading && videos.length === 0) {
     return (
       <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Videos' }} />
+        <Stack.Screen options={{ 
+          title: currentChapter ? currentChapter.chapterName || currentChapter.title || 'Videos' : 'Videos' 
+        }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.brand.primary} />
           <Text style={styles.loadingText}>Loading videos...</Text>
@@ -123,7 +140,9 @@ export default function VideoList() {
   if (videosError && videos.length === 0) {
     return (
       <View style={styles.container}>
-        <Stack.Screen options={{ title: 'Videos' }} />
+        <Stack.Screen options={{ 
+          title: currentChapter ? currentChapter.chapterName || currentChapter.title || 'Videos' : 'Videos' 
+        }} />
         <View style={styles.centeredContainer}>
           <Ionicons name="alert-circle-outline" size={64} color={colors.status.error} />
           <Text style={styles.heading3}>Failed to load videos</Text>
@@ -138,7 +157,9 @@ export default function VideoList() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Videos' }} />
+      <Stack.Screen options={{ 
+        title: currentChapter ? currentChapter.chapterName || currentChapter.title || 'Videos' : 'Videos' 
+      }} />
       
       <View style={localStyles.header}>
         <Text style={styles.heading2}>Videos</Text>

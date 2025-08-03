@@ -3,14 +3,14 @@ import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 
 // Allow both remote (uri) and local (require) images:
 interface QuickLinkProps {
   title: string;
   description: string;
   imageSource: { uri: string } | number;
-  href: string;
+  href: Href;
 }
 
 const QuickLink: React.FC<QuickLinkProps> = ({ title, description, imageSource, href }) => {
@@ -36,19 +36,19 @@ const QuickLinks: React.FC = () => {
         title="Courses"
         description="View all the active courses."
         imageSource={require('../assets/images/myimages/course.png')} // Change to PNG or JPG, not SVG
-        href="/courses"
+        href="/(tabs)/courses"
       />
       <QuickLink
         title="Analytics"
         description="View all the analytics related stats."
         imageSource={require('../assets/images/myimages/analytics.png')}
-        href="/analytics"
+        href="/(root)/analytics"
       />
       <QuickLink
         title="Forum"
         description="Coming Soon."
         imageSource={require('../assets/images/myimages/form.png')}
-        href="/forum"
+        href="/(root)/forum"
       />
     </ThemedView>
   );

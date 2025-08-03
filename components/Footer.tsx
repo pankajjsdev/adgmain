@@ -19,10 +19,10 @@ const Footer = () => {
           <Text style={styles.navText}>Courses</Text>
         </TouchableOpacity>
       </Link>
-      <Link href="/browse" asChild>
+      <Link href="/(tabs)/more" asChild>
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="search-outline" size={24} color="#000" />{/* Adjust color as needed */}
-          <Text style={styles.navText}>Browse</Text>
+          <Text style={styles.navText}>More</Text>
         </TouchableOpacity>
       </Link>
     </ThemedView>

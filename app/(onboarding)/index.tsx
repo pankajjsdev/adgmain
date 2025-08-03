@@ -5,6 +5,8 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
+  StatusBar,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -51,6 +53,7 @@ const onboardingData = [
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
   const router = useRouter();
   const { completeOnboarding } = useOnboardingStore();
   const { colors, spacing, typography, borderRadius, shadows } = useGlobalStyles();
@@ -74,8 +77,43 @@ export default function OnboardingScreen() {
   };
 
   const handleGetStarted = async () => {
-    await completeOnboarding();
-    router.replace('/(auth)/login');
+    if (isCompleting) {
+      console.log('⏳ Onboarding completion already in progress...');
+      return;
+    }
+
+    try {
+      setIsCompleting(true);
+      console.log('🚀 Starting onboarding completion...');
+      
+      await completeOnboarding();
+      console.log('✅ Onboarding completed successfully');
+      
+      // Small delay to ensure state is properly updated
+      setTimeout(() => {
+        router.replace('/(auth)/login');
+      }, 100);
+      
+    } catch (error) {
+      console.error('❌ Failed to complete onboarding:', error);
+      setIsCompleting(false);
+      
+      // Show user-friendly error message
+      Alert.alert(
+        'Setup Error',
+        'There was an issue completing the setup. Please try again.',
+        [
+          {
+            text: 'Retry',
+            onPress: () => handleGetStarted()
+          },
+          {
+            text: 'Skip for now',
+            onPress: () => router.replace('/(auth)/login')
+          }
+        ]
+      );
+    }
   };
 
   const currentSlide = onboardingData[currentIndex];

@@ -150,14 +150,14 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     // Card Styles
     card: {
       backgroundColor: colors.surface.card,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       padding: Spacing.base,
       ...Shadows.base,
     },
     
     cardElevated: {
       backgroundColor: colors.surface.elevated,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       padding: Spacing.base,
       ...Shadows.md,
     },
@@ -238,7 +238,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     // Button Styles
     buttonPrimary: {
       backgroundColor: colors.interactive.primary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingVertical: Spacing.md,
       paddingHorizontal: Spacing.xl,
       alignItems: 'center',
@@ -248,7 +248,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     
     buttonSecondary: {
       backgroundColor: colors.interactive.secondary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingVertical: Spacing.md,
       paddingHorizontal: Spacing.xl,
       alignItems: 'center',
@@ -259,7 +259,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     
     buttonOutline: {
       backgroundColor: 'transparent',
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingVertical: Spacing.md,
       paddingHorizontal: Spacing.xl,
       alignItems: 'center',
@@ -270,7 +270,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     
     buttonDisabled: {
       backgroundColor: colors.interactive.disabled,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingVertical: Spacing.md,
       paddingHorizontal: Spacing.xl,
       alignItems: 'center',
@@ -319,7 +319,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       alignItems: 'center',
       borderWidth: 1,
       borderColor: colors.border.primary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       backgroundColor: colors.surface.secondary,
     },
     
@@ -426,7 +426,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     
     listItem: {
       backgroundColor: colors.surface.card,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       padding: Spacing.base,
       marginBottom: Spacing.md,
       ...Shadows.sm,
@@ -590,7 +590,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       width: '100%',
       height: width * 0.56, // 16:9 aspect ratio
       backgroundColor: colors.background.secondary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       overflow: 'hidden',
       position: 'relative',
     },
@@ -735,7 +735,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     // Info Card Styles
     infoCard: {
       backgroundColor: colors.surface.secondary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       padding: Spacing.base,
       marginBottom: Spacing.lg,
       borderLeftWidth: 4,
@@ -941,7 +941,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       backgroundColor: colors.status.warning,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
     },
     
     timerText: {
@@ -960,7 +960,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       backgroundColor: colors.interactive.primary,
       paddingVertical: Spacing.md,
       paddingHorizontal: Spacing.lg,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -990,7 +990,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     fillInput: {
       borderWidth: 1,
       borderColor: colors.border.primary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
       fontSize: Typography.fontSize.base,
@@ -1006,7 +1006,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     optionButton: {
       borderWidth: 1,
       borderColor: colors.border.primary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingVertical: Spacing.md,
       paddingHorizontal: Spacing.lg,
       marginBottom: Spacing.sm,
@@ -1084,7 +1084,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     textInput: {
       borderWidth: 1,
       borderColor: colors.border.primary,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       paddingHorizontal: Spacing.md,
       paddingVertical: Spacing.sm,
       fontSize: Typography.fontSize.base,
@@ -1116,8 +1116,449 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     questionImage: {
       width: 200,
       height: 150,
-      borderRadius: BorderRadius.md,
+      borderRadius: BorderRadius.base,
       marginBottom: Spacing.md,
+    },
+
+    // Video Detail Page Stats Styles
+    statColumn: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: Spacing.sm,
+    },
+
+    statLabel: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.medium,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      marginBottom: Spacing.xs,
+    },
+
+    statValue: {
+      fontSize: Typography.fontSize.lg,
+      fontWeight: Typography.fontWeight.bold,
+      color: colors.text.primary,
+      textAlign: 'center',
+    },
+
+    // Questions Progress Styles
+    questionsProgressCard: {
+      backgroundColor: colors.surface.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginVertical: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+
+    questionsProgressTitle: {
+      fontSize: Typography.fontSize.lg,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.primary,
+      marginBottom: Spacing.sm,
+      textAlign: 'center',
+    },
+
+    questionsProgressText: {
+      fontSize: Typography.fontSize.base,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: Typography.fontSize.base * 1.5,
+    },
+
+    // Empty State Styles
+    emptyIcon: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: Spacing.lg,
+      alignSelf: 'center',
+    },
+
+    // Content Card Styles
+    contentCard: {
+      backgroundColor: colors.surface.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginVertical: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+
+    // Stats Icon Styles
+    statIcon: {
+      width: 24,
+      height: 24,
+      marginBottom: Spacing.xs,
+    },
+
+    // Resource Icon Styles
+    resourceIcon: {
+      width: 20,
+      height: 20,
+      marginRight: Spacing.sm,
+    },
+
+    // Question Card Styles
+    questionCard: {
+      backgroundColor: colors.surface.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginVertical: Spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+
+    questionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.md,
+    },
+
+    questionNumber: {
+      fontSize: Typography.fontSize.sm,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.secondary,
+    },
+
+    questionTypeBadge: {
+      backgroundColor: colors.brand.primary + '20',
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.sm,
+    },
+
+    questionTypeText: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.medium,
+      color: colors.brand.primary,
+    },
+
+    questionLevelBadge: {
+      backgroundColor: colors.status.warning + '20',
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.sm,
+    },
+
+    questionLevelText: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.medium,
+      color: colors.status.warning,
+    },
+
+    // Option Item Styles
+    optionItem: {
+      backgroundColor: colors.surface.primary,
+      borderRadius: BorderRadius.base,
+      padding: Spacing.md,
+      marginVertical: Spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+
+    optionLabel: {
+      fontSize: Typography.fontSize.base,
+      color: colors.text.primary,
+      fontWeight: Typography.fontWeight.medium,
+    },
+
+    // Question Meta Styles
+    questionMeta: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: Spacing.md,
+      paddingTop: Spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.secondary,
+    },
+
+    metaItem: {
+      alignItems: 'center',
+    },
+
+    metaText: {
+      fontSize: Typography.fontSize.xs,
+      color: colors.text.secondary,
+      marginTop: Spacing.xs,
+    },
+
+    // Progress Card Styles
+    progressCard: {
+      backgroundColor: colors.surface.card,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      marginVertical: Spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+
+    progressHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.md,
+    },
+
+    progressTitle: {
+      fontSize: Typography.fontSize.lg,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.primary,
+    },
+
+    statusBadge: {
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.sm,
+    },
+
+    statusText: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.medium,
+    },
+
+    watchTimeText: {
+      fontSize: Typography.fontSize.base,
+      color: colors.text.secondary,
+      marginVertical: Spacing.sm,
+    },
+
+    progressStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginTop: Spacing.md,
+      paddingTop: Spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.secondary,
+    },
+
+    // Modern Chapter Content Page Styles
+    heroSection: {
+      backgroundColor: colors.surface.card,
+      marginHorizontal: Spacing.lg,
+      marginTop: Spacing.md,
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.xl,
+      ...Shadows.md,
+    },
+    heroContent: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+    },
+    heroText: {
+      flex: 1,
+      marginRight: Spacing.lg,
+    },
+    heroTitle: {
+      fontSize: Typography.fontSize.xl,
+      fontWeight: Typography.fontWeight.bold,
+      color: colors.text.primary,
+      marginBottom: Spacing.xs,
+      fontFamily: 'Urbanist-Bold',
+    },
+    heroDescription: {
+      fontSize: Typography.fontSize.sm,
+      color: colors.text.secondary,
+      marginBottom: Spacing.lg,
+      lineHeight: 20,
+      fontFamily: 'Urbanist-Regular',
+    },
+    heroStats: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.lg,
+    },
+    heroStat: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    heroStatText: {
+      fontSize: Typography.fontSize.xs,
+      color: colors.text.secondary,
+      fontFamily: 'Urbanist-Medium',
+    },
+    heroProgress: {
+      alignItems: 'center',
+      gap: Spacing.md,
+    },
+    overallProgressText: {
+      fontSize: Typography.fontSize.xs,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      fontFamily: 'Urbanist-Medium',
+    },
+
+    // Filter Section Styles
+    filterSection: {
+      marginHorizontal: Spacing.lg,
+      marginTop: Spacing.xl,
+    },
+    chapterSectionTitle: {
+      fontSize: Typography.fontSize.lg,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.primary,
+      marginBottom: Spacing.lg,
+      fontFamily: 'Urbanist-SemiBold',
+    },
+    filterScrollView: {
+      marginHorizontal: -Spacing.lg,
+    },
+    filterContainer: {
+      paddingHorizontal: Spacing.lg,
+      gap: Spacing.md,
+    },
+    filterButton: {
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.md,
+      borderRadius: BorderRadius.full,
+      backgroundColor: colors.surface.secondary,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+    filterButtonActive: {
+      backgroundColor: colors.brand.primary,
+      borderColor: colors.brand.primary,
+    },
+    filterButtonText: {
+      fontSize: Typography.fontSize.sm,
+      color: colors.text.secondary,
+      fontFamily: 'Urbanist-Medium',
+    },
+    filterButtonTextActive: {
+      color: colors.surface.primary,
+      fontFamily: 'Urbanist-SemiBold',
+    },
+
+    // Content Grid Styles
+    contentGrid: {
+      marginHorizontal: Spacing.lg,
+      marginTop: Spacing.xl,
+      gap: Spacing.lg,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: Spacing.md,
+    },
+    cardIcon: {
+      padding: Spacing.md,
+      borderRadius: BorderRadius.base,
+      backgroundColor: colors.surface.secondary,
+    },
+    cardProgress: {
+      alignItems: 'center',
+    },
+    cardContent: {
+      flex: 1,
+      marginLeft: Spacing.md,
+    },
+    cardTitle: {
+      fontSize: Typography.fontSize.base,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.primary,
+      marginBottom: Spacing.xs,
+      fontFamily: 'Urbanist-SemiBold',
+    },
+    cardDescription: {
+      fontSize: Typography.fontSize.sm,
+      color: colors.text.secondary,
+      marginBottom: Spacing.md,
+      fontFamily: 'Urbanist-Regular',
+    },
+    cardStats: {
+      gap: Spacing.xs,
+    },
+    statRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    cardFooter: {
+      marginTop: Spacing.md,
+    },
+    chapterProgressBar: {
+      height: 4,
+      backgroundColor: colors.surface.secondary,
+      borderRadius: BorderRadius.xs,
+      overflow: 'hidden',
+    },
+    chapterProgressFill: {
+      height: '100%',
+      backgroundColor: colors.brand.primary,
+      borderRadius: BorderRadius.xs,
+    },
+    chapterProgressText: {
+      fontSize: Typography.fontSize.xs,
+      color: colors.text.secondary,
+      textAlign: 'right',
+      marginTop: Spacing.xs,
+      fontFamily: 'Urbanist-Medium',
+    },
+
+    // Primary and Secondary Button Styles
+    primaryButton: {
+      paddingVertical: Spacing.base,
+      paddingHorizontal: Spacing.lg,
+      backgroundColor: colors.brand.primary,
+      borderRadius: BorderRadius.base,
+      alignItems: 'center' as const,
+      marginTop: Spacing.base,
+    },
+    primaryButtonText: {
+      fontSize: Typography.fontSize.base,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.inverse,
+    },
+    secondaryButton: {
+      paddingVertical: Spacing.base,
+      paddingHorizontal: Spacing.lg,
+      backgroundColor: 'transparent',
+      borderRadius: BorderRadius.base,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      alignItems: 'center' as const,
+      marginTop: Spacing.base,
+    },
+    secondaryButtonText: {
+      fontSize: Typography.fontSize.base,
+      fontWeight: Typography.fontWeight.semibold,
+      color: colors.text.primary,
+    },
+
+    // Quick Actions Styles
+    quickActions: {
+      marginHorizontal: Spacing.lg,
+      marginTop: Spacing.xl,
+      marginBottom: Spacing['6xl'],
+    },
+    actionButtons: {
+      flexDirection: 'row' as const,
+      gap: Spacing.base,
+      marginTop: Spacing.base,
+    },
+    actionButton: {
+      flex: 1,
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      padding: Spacing.base,
+      backgroundColor: colors.surface.card,
+      borderRadius: BorderRadius.base,
+      borderWidth: 1,
+      borderColor: colors.border.secondary,
+    },
+    actionButtonText: {
+      marginLeft: Spacing.xs,
+      fontSize: Typography.fontSize.sm,
+      fontWeight: Typography.fontWeight.medium,
+      color: colors.text.primary,
     },
   });
 };

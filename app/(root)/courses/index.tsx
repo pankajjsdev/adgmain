@@ -111,7 +111,7 @@ export default function CoursesScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Available Courses' }} />
+      <Stack.Screen options={{ title: 'Courses' }} />
 
       {coursesLoading && courses.length === 0 && (
         <View style={styles.loadingContainer}>

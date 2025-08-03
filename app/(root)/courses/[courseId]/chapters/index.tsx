@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { Stack, useLocalSearchParams, router } from 'expo-router';
+import { Stack, useLocalSearchParams, router, useNavigation } from 'expo-router';
 import useCourseStore from '@/store/courseStore';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import type { Chapter } from '@/store/courseStore';
@@ -89,9 +89,11 @@ export default function ChapterListScreen() {
     chaptersError,
     chaptersHasMore,
     chaptersRefreshing,
+    currentCourse,
     fetchChapters,
     refreshChapters,
     loadMoreChapters,
+    fetchCourse,
     clearError,
   } = useCourseStore();
 
@@ -99,6 +101,8 @@ export default function ChapterListScreen() {
     if (!courseId) return;
     
     try {
+      // Fetch course details first to get the course name for header
+      await fetchCourse(courseId);
       await fetchChapters(courseId);
     } catch {
       Alert.alert(
@@ -109,11 +113,22 @@ export default function ChapterListScreen() {
         ]
       );
     }
-  }, [courseId, fetchChapters, clearError]);
+  }, [courseId, fetchCourse, fetchChapters, clearError]);
 
   useEffect(() => {
     loadChapters();
   }, [loadChapters]);
+
+  // Navigation for dynamic header updates
+  const navigation = useNavigation();
+
+  // Update header title when course data is available
+  useEffect(() => {
+    if (currentCourse) {
+      const title = currentCourse.courseName || currentCourse.title || 'Course Chapters';
+      navigation.setOptions({ title });
+    }
+  }, [currentCourse, navigation]);
 
   const handleChapterPress = (chapterId: string) => {
     if (chapterId && courseId) {
@@ -235,7 +250,9 @@ export default function ChapterListScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Course Chapters' }} />
+      <Stack.Screen options={{ 
+        title: currentCourse ? currentCourse.courseName || currentCourse.title || 'Course Chapters' : 'Course Chapters' 
+      }} />
 
       {chaptersLoading && chapters.length === 0 && (
         <View style={localStyles.loadingContainer}>
