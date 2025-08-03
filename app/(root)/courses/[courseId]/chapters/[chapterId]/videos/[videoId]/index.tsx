@@ -190,8 +190,8 @@ export default function VideoDetailScreen() {
 
   // Helper function to truncate video title for header
   const truncateTitle = (title: string, maxLength: number = 25) => {
-    if (title.length <= maxLength) return title;
-    return title.substring(0, maxLength) + '...';
+    if (title?.length <= maxLength) return title;
+    return title?.substring(0, maxLength) + '...';
   };
 
   // Update header title when video data is available
@@ -348,8 +348,6 @@ export default function VideoDetailScreen() {
         };
     }
   };
-
-  const videoTypeInfo = getVideoTypeInfo();
 
   // Enhanced renderTabContent function with better UI and animations
   const renderTabContent = () => {
@@ -1014,27 +1012,45 @@ export default function VideoDetailScreen() {
     }
   };
 
+  const progressPercentage = playerState ? ((playerState.currentTime || 0) / (playerState.duration || videoData.duration || 1)) * 100 : 0;
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  const videoTypeInfo = getVideoTypeInfo();
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Stack.Screen options={{ title: 'Video' }} />
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      <Stack.Screen 
+        options={{ 
+          title: truncateTitle(videoData.videoTitle, 20),
+          headerStyle: { backgroundColor: colors.background.primary },
+          headerTintColor: colors.text.primary
+        }} 
+      />
       <ScrollView 
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            tintColor={colors.brand.primary}
+            colors={[colors.brand.primary]}
+          />
         }
         showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: colors.background.primary }}
       >
-      
-
-        {/* Video Player */}
-        <View style={styles.videoPlayerContainer}>
+        {/* Enhanced Video Player Section */}
+        <View style={[styles.videoPlayerContainer, { backgroundColor: colors.background.secondary }]}>
           {loading || !videoData.videoUrl ? (
-            <View style={styles.videoPlaceholder}>
-              <ActivityIndicator size="large" color={colors.text.inverse} />
-              <Text style={styles.loadingVideoText}>Loading video...</Text>
+            <View style={[styles.videoPlaceholder, { backgroundColor: '#000' }]}>
+              <ActivityIndicator size="large" color={colors.brand.primary} />
+              <Text style={[styles.loadingVideoText, { color: colors.text.inverse }]}>Loading video...</Text>
             </View>
           ) : (
             <>
-              {/* Actual Video Player */}
+              {/* Modern Video Player with Enhanced Controls */}
               <VideoPlayer
                 videoUrl={videoData.videoUrl}
                 posterUrl={videoData.videoThumbnail}
@@ -1042,14 +1058,15 @@ export default function VideoDetailScreen() {
                 currentTime={playerState?.currentTime || 0}
                 duration={playerState?.duration || videoData.duration || 0}
                 canSeek={canSeek}
+                videoType={videoData.videoType}
+                isCompleted={isVideoCompleted}
                 onPlayPause={togglePlayPause}
                 onTimeUpdate={(status) => {
-                    if (handleTimeUpdate) {
+                  if (handleTimeUpdate) {
                     handleTimeUpdate(status);
                   }
                 }}
                 onLoad={(status) => {
-                    // Update duration if not set
                   if (status.durationMillis && !playerState?.duration) {
                     // Duration handling logic
                   }
@@ -1059,49 +1076,191 @@ export default function VideoDetailScreen() {
                 }}
                 style={styles.video}
               />
-                
-              {/* Video Type Badge */}
-              <View style={[styles.videoTypeBadge, { backgroundColor: videoTypeInfo.color }]}>
-                <Ionicons name={videoTypeInfo.icon as any} size={16} color={colors.text.inverse} />
-                <Text style={styles.videoTypeBadgeText}>{videoTypeInfo.badge}</Text>
-              </View>
-
-              {/* Seeking Restriction Notice */}
-              {!canSeek && (
-                <View style={styles.restrictionNotice}>
-                  <Ionicons name="lock-closed" size={16} color={colors.text.inverse} />
-                  <Text style={styles.restrictionText}>
-                    {isVideoCompleted ? 'Video completed - seeking now allowed' : 'Complete video to enable seeking'}
-                  </Text>
-                </View>
-              )}
-                
-              {/* Progress Bar */}
-              <View style={styles.controlsOverlay}>
-                <View style={styles.customProgressContainer}>
-                  <View style={styles.customProgressBar}>
-                    <View 
-                      style={[
-                        styles.customProgressFill,
-                        { width: `${playerState ? ((playerState.currentTime || 0) / (playerState.duration || 1)) * 100 : 0}%` }
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.timeText}>
-                    {playerState ? Math.floor((playerState.currentTime || 0) / 60) : 0}:{playerState ? (Math.floor(playerState.currentTime || 0) % 60).toString().padStart(2, '0') : '00'} / 
-                    {playerState ? Math.floor((playerState.duration || 0) / 60) : Math.floor((videoData.duration || 0) / 60)}:{playerState ? (Math.floor(playerState.duration || 0) % 60).toString().padStart(2, '0') : (Math.floor(videoData.duration || 0) % 60).toString().padStart(2, '0')}
-                  </Text>
-                </View>
-              </View>
             </>
           )}
         </View>
 
-        {/* Chapter Info */}
-        <View style={styles.chapterInfo}>
-          <Text style={styles.chapterTitle}>{videoData.videoTitle}</Text>
-          <Text style={styles.chapterSubtitle}>Chapter {chapterId}</Text>
-        </View>
+        {/* Enhanced Video Information Card */}
+        <Animated.View 
+          style={[
+            {
+              margin: 16,
+              borderRadius: 12,
+              padding: 16,
+              backgroundColor: colors.background.secondary,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+              transform: [{ scale: scaleAnim }],
+              opacity: fadeAnim
+            }
+          ]}
+        >
+          {/* Video Header */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: 16
+          }}>
+            <View style={{ flex: 1, marginRight: 16 }}>
+              <Text style={{ 
+                color: colors.text.primary,
+                fontSize: 20,
+                fontWeight: 'bold',
+                marginBottom: 8,
+                lineHeight: 28
+              }}>
+                {videoData.videoTitle}
+              </Text>
+              
+              {/* Video Metadata */}
+              <View style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 16
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
+                  <Text style={{ color: colors.text.secondary, fontSize: 14, fontWeight: '500' }}>
+                    {formatDuration(videoData.duration || 0)}
+                  </Text>
+                </View>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="folder-outline" size={16} color={colors.text.secondary} />
+                  <Text style={{ color: colors.text.secondary, fontSize: 14, fontWeight: '500' }}>
+                    Chapter {chapterId}
+                  </Text>
+                </View>
+                
+                {isVideoCompleted && (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 20,
+                    backgroundColor: colors.status.success,
+                    gap: 4
+                  }}>
+                    <Ionicons name="checkmark-circle" size={16} color={colors.text.inverse} />
+                    <Text style={{ color: colors.text.inverse, fontSize: 12, fontWeight: '600' }}>Completed</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            
+            {/* Video Type Badge */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: videoTypeInfo.color,
+              gap: 6,
+              minWidth: 120,
+              justifyContent: 'center'
+            }}>
+              <Ionicons name={videoTypeInfo.icon as any} size={20} color={colors.text.inverse} />
+              <Text style={{ color: colors.text.inverse, fontSize: 14, fontWeight: 'bold', textAlign: 'center' }}>
+                {videoTypeInfo.badge}
+              </Text>
+            </View>
+          </View>
+
+          {/* Progress Section */}
+          {playerState && (
+            <View style={{
+              padding: 16,
+              borderRadius: 8,
+              backgroundColor: colors.surface.card,
+              marginTop: 16
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8
+              }}>
+                <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: '600' }}>Your Progress</Text>
+                <Text style={{ color: colors.brand.primary, fontSize: 20, fontWeight: 'bold' }}>
+                  {Math.round(progressPercentage)}%
+                </Text>
+              </View>
+              
+              <View style={{
+                height: 8,
+                borderRadius: 20,
+                backgroundColor: colors.surface.tertiary,
+                overflow: 'hidden',
+                marginBottom: 8
+              }}>
+                <View style={{
+                  height: '100%',
+                  width: `${progressPercentage}%`,
+                  backgroundColor: colors.brand.primary,
+                  borderRadius: 20,
+                  minWidth: 2
+                }} />
+              </View>
+              
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <Text style={{ color: colors.text.secondary, fontSize: 14, fontWeight: '500' }}>
+                  {formatDuration(playerState.currentTime || 0)} / {formatDuration(playerState.duration || videoData.duration || 0)}
+                </Text>
+                
+                {!canSeek && (
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                    backgroundColor: colors.status.warning,
+                    gap: 4
+                  }}>
+                    <Ionicons name="lock-closed" size={12} color={colors.text.inverse} />
+                    <Text style={{ color: colors.text.inverse, fontSize: 12, fontWeight: '500' }}>
+                      Seeking Restricted
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Video Type Information */}
+          <View style={{
+            padding: 16,
+            borderRadius: 8,
+            backgroundColor: colors.surface.overlay,
+            marginTop: 16
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 8,
+              gap: 8
+            }}>
+              <Ionicons name={videoTypeInfo.icon as any} size={24} color={videoTypeInfo.color} />
+              <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: '600' }}>
+                {videoTypeInfo.title}
+              </Text>
+            </View>
+            <Text style={{ color: colors.text.secondary, fontSize: 14, lineHeight: 20 }}>
+              {videoTypeInfo.description}
+            </Text>
+          </View>
+        </Animated.View>
 
         {/* Tabs */}
         <View style={styles.tabsContainer}>

@@ -37,7 +37,7 @@ const ProgressCircle = ({ progress, size = 60, strokeWidth = 6, color }: {
 
 
   return (
-    <View style={{ width: size, height: size, position: 'relative' }}>
+    <View style={{ width: size, height: size, position: 'relative' as const }}>
       {/* Background Circle */}
       <View
         style={{
@@ -46,7 +46,7 @@ const ProgressCircle = ({ progress, size = 60, strokeWidth = 6, color }: {
           borderRadius: size / 2,
           borderWidth: strokeWidth,
           borderColor: colors.border.secondary,
-          position: 'absolute',
+          position: 'absolute' as const,
         }}
       />
       {/* Progress Circle */}
@@ -61,23 +61,23 @@ const ProgressCircle = ({ progress, size = 60, strokeWidth = 6, color }: {
           borderRightColor: progress > 25 ? color : 'transparent',
           borderBottomColor: progress > 50 ? color : 'transparent',
           borderLeftColor: progress > 75 ? color : 'transparent',
-          position: 'absolute',
+          position: 'absolute' as const,
           transform: [{ rotate: '-90deg' }],
         }}
       />
       {/* Progress Text */}
       <View
         style={{
-          position: 'absolute',
+          position: 'absolute' as const,
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          justifyContent: 'center',
-          alignItems: 'center',
+          justifyContent: 'center' as const,
+          alignItems: 'center' as const,
         }}
       >
-        <Text style={{ fontSize: size * 0.2, fontWeight: 'bold', color }}>
+        <Text style={{ fontSize: size * 0.2, fontWeight: 'bold' as const, color }}>
           {Math.round(progress)}%
         </Text>
       </View>
@@ -298,11 +298,11 @@ export default function ChapterDetails() {
             <View 
               style={[
                 styles.chapterProgressFill, 
-                { width: `${progress}%` }
+                { width: `${Math.round(progress)}%` }
               ]} 
             />
           </View>
-          <Text style={styles.chapterProgressText}>{progress}% Complete</Text>
+          <Text style={styles.chapterProgressText}>{Math.round(progress)}% Complete</Text>
         </View>
       </TouchableOpacity>
     );
@@ -342,7 +342,7 @@ export default function ChapterDetails() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ 
-        title: currentChapter.title,
+        title: currentChapter?.title || 'Chapter Details',
         headerTitleStyle: { fontSize: 16 }
       }} />
       
@@ -362,20 +362,20 @@ export default function ChapterDetails() {
         <View style={styles.heroSection}>
           <View style={styles.heroContent}>
             <View style={styles.heroText}>
-              <Text style={styles.heroTitle}>{currentChapter.title}</Text>
-              <Text style={styles.heroDescription}>{currentChapter.description}</Text>
+              <Text style={styles.heroTitle}>{currentChapter?.title}</Text>
+              <Text style={styles.heroDescription}>{currentChapter?.description}</Text>
               
               {/* Chapter Stats */}
               <View style={styles.heroStats}>
                 <View style={styles.heroStat}>
                   <Ionicons name="time" size={16} color={colors.brand.primary} />
-                  <Text style={styles.heroStatText}>{currentChapter.duration}</Text>
+                  <Text style={styles.heroStatText}>{currentChapter?.duration}</Text>
                 </View>
                 <View style={styles.heroStat}>
                   <Ionicons name="list" size={16} color={colors.brand.primary} />
-                  <Text style={styles.heroStatText}>Chapter {currentChapter.order}</Text>
+                  <Text style={styles.heroStatText}>Chapter {currentChapter?.order}</Text>
                 </View>
-                {currentChapter.isCompleted && (
+                {currentChapter?.isCompleted && (
                   <View style={styles.heroStat}>
                     <Ionicons name="checkmark-circle" size={16} color={colors.status.success} />
                     <Text style={[styles.heroStatText, { color: colors.status.success }]}>Completed</Text>

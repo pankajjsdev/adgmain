@@ -1540,16 +1540,18 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     },
     actionButtons: {
       flexDirection: 'row' as const,
-      gap: Spacing.base,
-      marginTop: Spacing.base,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: Spacing.md,
     },
     actionButton: {
       flex: 1,
       flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      padding: Spacing.base,
-      backgroundColor: colors.surface.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.lg,
+      backgroundColor: colors.surface.secondary,
       borderRadius: BorderRadius.base,
       borderWidth: 1,
       borderColor: colors.border.secondary,
@@ -1559,6 +1561,164 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       fontSize: Typography.fontSize.sm,
       fontWeight: Typography.fontWeight.medium,
       color: colors.text.primary,
+    },
+
+    // Enhanced Video Detail Page Styles
+    videoInfoCard: {
+      margin: Spacing.md,
+      borderRadius: BorderRadius.lg,
+      padding: Spacing.lg,
+      ...Shadows.md,
+    },
+    
+    videoHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: Spacing.md,
+    },
+    
+    videoTitleSection: {
+      flex: 1,
+      marginRight: Spacing.md,
+    },
+    
+    videoTitle: {
+      marginBottom: Spacing.sm,
+      lineHeight: 28,
+    },
+    
+    videoMetadata: {
+      flexDirection: 'row' as const,
+      flexWrap: 'wrap' as const,
+      alignItems: 'center',
+      gap: Spacing.md,
+    },
+    
+    metadataItem: {
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      gap: Spacing.xs,
+    },
+    
+    metadataText: {
+      fontSize: Typography.fontSize.sm,
+      fontWeight: Typography.fontWeight.medium,
+    },
+    
+    completionBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.full,
+      gap: Spacing.xs,
+    },
+    
+    completionText: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.semibold,
+    },
+    
+    videoTypeBadgeEnhanced: {
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      borderRadius: BorderRadius.lg,
+      gap: Spacing.sm,
+      minWidth: 120,
+      justifyContent: 'center',
+    },
+    
+    videoTypeBadgeTextEnhanced: {
+      fontSize: Typography.fontSize.sm,
+      fontWeight: Typography.fontWeight.bold,
+      textAlign: 'center' as const,
+    },
+    
+    videoProgressSection: {
+      padding: Spacing.md,
+      borderRadius: BorderRadius.md,
+      marginTop: Spacing.md,
+    },
+    
+    videoProgressHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+    },
+    
+    videoProgressTitle: {
+      fontSize: Typography.fontSize.lg,
+      fontWeight: Typography.fontWeight.semibold,
+    },
+    
+    videoProgressPercentage: {
+      fontSize: Typography.fontSize.xl,
+      fontWeight: Typography.fontWeight.bold,
+    },
+    
+    videoProgressBarContainer: {
+      height: 8,
+      borderRadius: BorderRadius.full,
+      overflow: 'hidden' as const,
+      marginBottom: Spacing.sm,
+    },
+    
+    videoProgressBarFill: {
+      height: '100%',
+      borderRadius: BorderRadius.full,
+      minWidth: 2,
+    },
+    
+    progressDetails: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    
+    progressTime: {
+      fontSize: Typography.fontSize.sm,
+      fontWeight: Typography.fontWeight.medium,
+    },
+    
+    restrictionBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      paddingHorizontal: Spacing.sm,
+      paddingVertical: Spacing.xs,
+      borderRadius: BorderRadius.md,
+      gap: Spacing.xs,
+    },
+    
+    restrictionBadgeText: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.medium,
+    },
+    
+    videoTypeInfo: {
+      padding: Spacing.md,
+      borderRadius: BorderRadius.md,
+      marginTop: Spacing.md,
+    },
+    
+    videoTypeHeader: {
+      flexDirection: 'row' as const,
+      alignItems: 'center',
+      marginBottom: Spacing.sm,
+      gap: Spacing.sm,
+    },
+    
+    videoTypeTitle: {
+      fontSize: Typography.fontSize.lg,
+      fontWeight: Typography.fontWeight.semibold,
+    },
+    
+    videoTypeDescription: {
+      fontSize: Typography.fontSize.sm,
+      lineHeight: 20,
     },
   });
 };

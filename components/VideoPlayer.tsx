@@ -1,3 +1,4 @@
+import { ModernVideoControls } from './ModernVideoControls';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import {
   enterFullscreenOrientation,
@@ -14,15 +15,13 @@ import {
   validateVideoUrl,
   VideoFormat
 } from '@/utils/videoFormatUtils';
-import { Ionicons } from '@expo/vector-icons';
 import { ResizeMode, Video } from 'expo-av';
-import * as ScreenOrientation from 'expo-screen-orientation';
-import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Dimensions, Platform, StatusBar, StyleSheet, TouchableOpacity, View, Animated } from 'react-native';
 
 interface VideoPlayerProps {
   videoUrl: string;
-  posterUrl?: string; // Add poster thumbnail support
+  posterUrl?: string;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -33,6 +32,13 @@ interface VideoPlayerProps {
   videoRef?: React.RefObject<Video>;
   style?: any;
   onFullscreenChange?: (isFullscreen: boolean) => void;
+  // Enhanced props for modern controls
+  videoType?: 'basic' | 'trackable' | 'trackableRandom' | 'interactive';
+  isCompleted?: boolean;
+  volume?: number;
+  playbackSpeed?: number;
+  onVolumeChange?: (volume: number) => void;
+  onSpeedChange?: (speed: number) => void;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -49,18 +55,69 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onLoad,
   videoRef: externalVideoRef,
   style,
-  onFullscreenChange
+  onFullscreenChange,
+  videoType = 'basic',
+  isCompleted = false,
+  volume = 1,
+  playbackSpeed = 1,
+  onVolumeChange,
+  onSpeedChange
 }) => {
-  const { colors } = useGlobalStyles();
+  // const { colors } = useGlobalStyles(); // Not needed with modern controls
   const internalVideoRef = useRef<Video>(null);
   const videoRef = externalVideoRef || internalVideoRef;
   const [showControls, setShowControls] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Track original orientation for restoration (will be used when implementing orientation restore)
-  // const [originalOrientation, setOriginalOrientation] = useState<ScreenOrientation.Orientation | null>(null);
   const [videoFormat, setVideoFormat] = useState<VideoFormat>(VideoFormat.UNKNOWN);
   const [videoSource, setVideoSource] = useState<any>(null);
+  const [currentVolume, setCurrentVolume] = useState(volume);
+  const [currentSpeed, setCurrentSpeed] = useState(playbackSpeed);
+  
+  // Auto-hide controls timer
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // const controlsOpacity = useRef(new Animated.Value(1)).current; // Not needed with modern controls
+
+  // Auto-hide controls functionality
+  const resetControlsTimer = useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    setShowControls(true);
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 4000); // Hide after 4 seconds
+  }, []);
+
+  const toggleControlsVisibility = useCallback(() => {
+    setShowControls(prev => !prev);
+    if (!showControls) {
+      resetControlsTimer();
+    }
+  }, [showControls, resetControlsTimer]);
+
+  // Volume and speed handlers
+  const handleVolumeChange = useCallback(async (newVolume: number) => {
+    setCurrentVolume(newVolume);
+    if (videoRef.current) {
+      await videoRef.current.setVolumeAsync(newVolume);
+    }
+    onVolumeChange?.(newVolume);
+  }, [onVolumeChange]);
+
+  const handleSpeedChange = useCallback(async (newSpeed: number) => {
+    setCurrentSpeed(newSpeed);
+    if (videoRef.current) {
+      await videoRef.current.setRateAsync(newSpeed, true);
+    }
+    onSpeedChange?.(newSpeed);
+  }, [onSpeedChange]);
+
+  const handleSeekFromControls = useCallback(async (seekTime: number) => {
+    if (canSeek && videoRef.current) {
+      await videoRef.current.setPositionAsync(seekTime * 1000);
+    }
+  }, [canSeek]);
 
   console.log("🎥 VideoPlayer Debug:", {
     videoUrl,
@@ -287,92 +344,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
           }}
         />
 
-        {/* Video Controls Overlay */}
-        {showControls && (
-          <View style={styles.controlsOverlay}>
-            {/* Play/Pause Button */}
-            <TouchableOpacity 
-              style={styles.playPauseButton}
-              onPress={onPlayPause}
-            >
-              {isBuffering ? (
-                <View style={styles.bufferingIndicator} />
-              ) : (
-                <Ionicons 
-                  name={isPlaying ? "pause" : "play"} 
-                  size={48} 
-                  color={colors.text.inverse} 
-                />
-              )}
-            </TouchableOpacity>
-
-            {/* Fullscreen Button */}
-            <TouchableOpacity 
-              style={styles.fullscreenButton}
-              onPress={toggleFullscreen}
-            >
-              <Ionicons 
-                name={isFullscreen ? "contract" : "expand"} 
-                size={24} 
-                color={colors.text.inverse} 
-              />
-            </TouchableOpacity>
-
-            {/* Video Format Indicator */}
-            {videoFormat !== VideoFormat.UNKNOWN && (
-              <View style={styles.formatIndicator}>
-                <Ionicons 
-                  name={isStreamingFormat(videoFormat) ? "radio" : "videocam"} 
-                  size={14} 
-                  color={colors.text.inverse} 
-                />
-                <Text style={styles.formatText}>
-                  {getFormatDisplayName(videoFormat)}
-                </Text>
-              </View>
-            )}
-            
-            {/* Seek Restriction Notice */}
-            {!canSeek && (
-              <View style={styles.restrictionNotice}>
-                <Ionicons name="lock-closed" size={16} color={colors.status.warning} />
-                <Text style={styles.restrictionText}>
-                  Seeking disabled for this video type
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
+        {/* Modern Video Controls */}
+        <ModernVideoControls
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          canSeek={canSeek}
+          isBuffering={isBuffering}
+          isFullscreen={isFullscreen}
+          showControls={showControls}
+          videoType={videoType}
+          isCompleted={isCompleted}
+          onPlayPause={onPlayPause}
+          onSeek={handleSeekFromControls}
+          onFullscreen={toggleFullscreen}
+          onControlsToggle={toggleControlsVisibility}
+          onVolumeChange={handleVolumeChange}
+          onSpeedChange={handleSpeedChange}
+          volume={currentVolume}
+          playbackSpeed={currentSpeed}
+        />
       </TouchableOpacity>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <Text style={[styles.timeText, { color: colors.text.secondary }]}>
-          {formatTime(currentTime)}
-        </Text>
-        
-        <TouchableOpacity 
-          style={styles.progressBar}
-          onPress={handleProgressBarPress}
-          disabled={!canSeek}
-        >
-          <View style={[styles.progressTrack, { backgroundColor: colors.surface.tertiary }]}>
-            <View 
-              style={[
-                styles.progressFill, 
-                { 
-                  backgroundColor: colors.brand.primary,
-                  width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%'
-                }
-              ]} 
-            />
-          </View>
-        </TouchableOpacity>
-        
-        <Text style={[styles.timeText, { color: colors.text.secondary }]}>
-          {formatTime(duration)}
-        </Text>
-      </View>
     </View>
   );
 };

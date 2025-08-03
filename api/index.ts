@@ -119,12 +119,113 @@ const generateCurlCommand = (config: any): string => {
   return curlCommand;
 };
 
-// Helper function to print cURL command
+// Helper function to get caller filename information
+const getCallerInfo = (): string => {
+  try {
+    const stack = new Error().stack;
+    if (!stack) return 'Unknown';
+    
+    const stackLines = stack.split('\n');
+    
+    // Look for the first line that contains a file from our app (not node_modules)
+    for (let i = 1; i < stackLines.length; i++) {
+      const line = stackLines[i].trim();
+      
+      // Skip internal functions and node_modules
+      if (line.includes('getCallerInfo') || 
+          line.includes('printCurlCommand') || 
+          line.includes('logApiCall') ||
+          line.includes('node_modules') ||
+          line.includes('fetchApi') ||
+          line.includes('apiGet') ||
+          line.includes('apiPost') ||
+          line.includes('apiPut') ||
+          line.includes('apiPatch') ||
+          line.includes('apiDelete')) {
+        continue;
+      }
+      
+      // Multiple patterns to match different stack trace formats
+      const patterns = [
+        // Pattern 1: /path/to/file.tsx:123:45
+        /([^/\\]*\.(tsx?|jsx?)):(\d+):(\d+)/,
+        // Pattern 2: at function (/path/to/file.tsx:123:45)
+        /at.*\(([^/\\]*\.(tsx?|jsx?)):(\d+):(\d+)\)/,
+        // Pattern 3: at /path/to/file.tsx:123:45
+        /at\s+([^/\\]*\.(tsx?|jsx?)):(\d+):(\d+)/,
+        // Pattern 4: file.tsx:123:45
+        /([a-zA-Z0-9_-]+\.(tsx?|jsx?)):(\d+):(\d+)/
+      ];
+      
+      for (const pattern of patterns) {
+        const match = line.match(pattern);
+        if (match) {
+          const filename = match[1];
+          const lineNum = match[3];
+          return `📁 ${filename}:${lineNum}`;
+        }
+      }
+    }
+    
+    return '📁 Unknown caller';
+  } catch (error) {
+    return '📁 Unknown caller';
+  }
+};
+
+// Enhanced API logging function
+const logApiCall = (type: 'REQUEST' | 'SUCCESS' | 'ERROR', config: any, response?: any, error?: any): void => {
+  if (!IS_DEV) return; // Only log in development
+  
+  const callerInfo = getCallerInfo();
+  const timestamp = new Date().toLocaleTimeString();
+  const method = config.method?.toUpperCase() || 'GET';
+  const url = config.url?.startsWith('http') ? config.url : `${API_BASE_URL}${config.url}`;
+  
+  const baseLog = `🌐 [${timestamp}] ${type} ${method} ${url}`;
+  
+  switch (type) {
+    case 'REQUEST':
+      console.log(`\n${baseLog}`);
+      console.log(`📍 Called from: ${callerInfo}`);
+      if (config.data) {
+        console.log('📤 Request Data:', JSON.stringify(config.data, null, 2));
+      }
+      break;
+      
+    case 'SUCCESS':
+      console.log(`✅ ${baseLog}`);
+      console.log(`📍 Called from: ${callerInfo}`);
+      console.log(`⏱️  Response Time: ${response?.config?.metadata?.requestStartTime ? Date.now() - response.config.metadata.requestStartTime : 'Unknown'}ms`);
+      console.log(`📊 Status: ${response?.status || 'Unknown'}`);
+      if (response?.data) {
+        console.log('📥 Response Data:', JSON.stringify(response.data, null, 2));
+      }
+      break;
+      
+    case 'ERROR':
+      console.log(`❌ ${baseLog}`);
+      console.log(`📍 Called from: ${callerInfo}`);
+      console.log(`📊 Status: ${error?.response?.status || error?.status || 'Unknown'}`);
+      console.log(`💥 Error: ${error?.message || 'Unknown error'}`);
+      if (error?.response?.data) {
+        console.log('📥 Error Data:', JSON.stringify(error.response.data, null, 2));
+      }
+      break;
+  }
+  
+  console.log('─'.repeat(80));
+};
+
+// Helper function to print cURL command with caller info
 const printCurlCommand = (config: any): void => {
   // if (IS_DEV) {
     const curlCommand = generateCurlCommand(config);
-    console.log('\n📋 cURL Command (copy & paste to test):');
-    console.log('=' .repeat(50));
+    const callerInfo = getCallerInfo();
+    
+    console.log('\n📋 API Call from:', callerInfo);
+    console.log('📋 cURL Command (copy & paste to test):');
+    console.log('=' .repeat(60));
     console.log(curlCommand);
     
     // Check if Authorization header is missing
@@ -135,7 +236,7 @@ const printCurlCommand = (config: any): void => {
       console.log('   - Add manually: -H "Authorization: Bearer YOUR_TOKEN"');
     }
     
-    console.log('=' .repeat(50) + '\n');
+    console.log('=' .repeat(60) + '\n');
   // }
 };
 
@@ -763,6 +864,21 @@ export const fetchApi = async <T = any>(
     ...restOptions
   } = options;
 
+  // Create config object for logging
+  const config = {
+    url: endpoint,
+    method,
+    data,
+    headers: {
+      ...headers,
+    },
+    skipRetry,
+    ...restOptions,
+  };
+
+  // Log the API request
+  logApiCall('REQUEST', config);
+
   // Generate cache key
   const finalCacheKey = cacheKey || `${method}:${endpoint}:${JSON.stringify(data)}`;
 
@@ -787,21 +903,17 @@ export const fetchApi = async <T = any>(
     throw new Error('No internet connection');
   }
 
-  const config: RequestConfig = {
-    url: endpoint,
-    method,
-    data,
-    headers: {
-      ...headers,
-    },
-    skipRetry,
-    ...restOptions,
-  };
-
   try {
+    // Add request start time for performance tracking
+    const requestStartTime = Date.now();
+    config.metadata = { requestStartTime };
+
     const response = skipRetry 
       ? await api.request(config)
       : await retryRequest(config);
+
+    // Log successful response
+    logApiCall('SUCCESS', config, response);
 
     const result: ApiResponse<T> = {
       data: response.data.data || response.data,
@@ -819,6 +931,9 @@ export const fetchApi = async <T = any>(
 
     return result;
   } catch (error: any) {
+    // Log error response
+    logApiCall('ERROR', config, null, error);
+
     const apiError: ApiError = {
       message: error.response?.data?.message || error.message || 'An error occurred',
       statusCode: error.response?.status || 0,
