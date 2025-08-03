@@ -1,0 +1,27 @@
+{
+  "scripts": {
+    "build:adg:dev": "node scripts/build-client.js adg development",
+    "build:adg:preview": "node scripts/build-client.js adg preview",
+    "build:adg:prod": "node scripts/build-client.js adg production",
+    "build:techedu:dev": "node scripts/build-client.js techedu development",
+    "build:techedu:preview": "node scripts/build-client.js techedu preview",
+    "build:techedu:prod": "node scripts/build-client.js techedu production",
+    "build:skillboost:dev": "node scripts/build-client.js skillboost development",
+    "build:skillboost:preview": "node scripts/build-client.js skillboost preview",
+    "build:skillboost:prod": "node scripts/build-client.js skillboost production",
+    "deploy:adg": "node scripts/deploy-client.js adg",
+    "deploy:techedu": "node scripts/deploy-client.js techedu",
+    "deploy:skillboost": "node scripts/deploy-client.js skillboost",
+    "deploy:adg:ios": "node scripts/deploy-client.js adg ios",
+    "deploy:adg:android": "node scripts/deploy-client.js adg android",
+    "deploy:techedu:ios": "node scripts/deploy-client.js techedu ios",
+    "deploy:techedu:android": "node scripts/deploy-client.js techedu android",
+    "deploy:skillboost:ios": "node scripts/deploy-client.js skillboost ios",
+    "deploy:skillboost:android": "node scripts/deploy-client.js skillboost android",
+    "list:clients": "node -e \"console.log('Available clients:', require('./config/clients').getAvailableClients().join(', '))\"",
+    "validate:client": "node -e \"const client = process.argv[1]; const { validateClientConfig } = require('./config/clients'); console.log(client + ':', validateClientConfig(client) ? 'Valid' : 'Invalid')\"",
+    "dev:adg": "CLIENT_NAME=adg APP_VARIANT=development expo start",
+    "dev:techedu": "CLIENT_NAME=techedu APP_VARIANT=development expo start",
+    "dev:skillboost": "CLIENT_NAME=skillboost APP_VARIANT=development expo start"
+  }
+}

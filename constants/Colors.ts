@@ -1,15 +1,42 @@
 /**
- * Comprehensive color system for the ADG Classes app.
+ * Multi-tenant color system that adapts to client-specific branding.
  * Supports both light and dark themes with semantic color naming.
+ * Uses client configuration for brand colors while maintaining semantic structure.
  */
 
-// Brand Colors
-const brandPrimary = '#007AFF';
-const brandSecondary = '#4ECDC4';
-const brandAccent = '#45B7D1';
-const brandSuccess = '#4CAF50';
-const brandWarning = '#FF9800';
-const brandError = '#FF3B30';
+import { getThemeColors } from '@/utils/clientConfig';
+
+// Get client-specific colors with fallback
+const getClientColors = (colorScheme: 'light' | 'dark' = 'light') => {
+  try {
+    return getThemeColors(colorScheme);
+  } catch (error) {
+    // Fallback brand colors if client config is not available
+    return {
+      primary: '#007AFF',
+      secondary: '#4ECDC4',
+      accent: '#45B7D1',
+      success: '#4CAF50',
+      warning: '#FF9800',
+      error: '#FF3B30',
+      background: colorScheme === 'dark' ? '#000000' : '#FFFFFF',
+      surface: colorScheme === 'dark' ? '#1C1C1E' : '#F2F2F7',
+      text: colorScheme === 'dark' ? '#FFFFFF' : '#000000',
+      textSecondary: '#8E8E93',
+    };
+  }
+};
+
+// Dynamic brand colors based on client configuration
+const lightColors = getClientColors('light');
+const darkColors = getClientColors('dark');
+
+const brandPrimary = lightColors.primary;
+const brandSecondary = lightColors.secondary;
+const brandAccent = lightColors.accent;
+const brandSuccess = lightColors.success;
+const brandWarning = lightColors.warning;
+const brandError = lightColors.error;
 const brandInfo = '#17A2B8';
 
 // Neutral Colors

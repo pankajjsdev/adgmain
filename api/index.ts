@@ -11,14 +11,21 @@ import * as Application from 'expo-application';
 import * as Device from 'expo-device';
 import * as Network from 'expo-network';
 import { Platform } from 'react-native';
+import { getApiConfig } from '@/utils/clientConfig';
 
 
 // Fix for __DEV__ import: use globalThis.__DEV__ for React Native compatibility
 const IS_DEV = typeof __DEV__ !== 'undefined' ? __DEV__ : (typeof globalThis !== 'undefined' && (globalThis as any).__DEV__) || false;
 
-// Environment configuration
+// Environment configuration - now uses client-specific configuration
 const getApiBaseUrl = (): string => {
-  return process.env?.EXPO_PUBLIC_API_BASE_URL_DEV || 'https://api.closm.com/api';
+  try {
+    const apiConfig = getApiConfig();
+    return apiConfig.baseUrl;
+  } catch (error) {
+    // Fallback to environment variable or default
+    return process.env?.EXPO_PUBLIC_API_BASE_URL_DEV || 'https://api.closm.com/api';
+  }
 };
 
 // Device ID generation

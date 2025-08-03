@@ -1,24 +1,133 @@
 {
-    "cli": {
-      "version": ">= 3.0.0"
+  "cli": {
+    "version": ">= 12.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development",
+        "CLIENT_NAME": "adg"
+      }
     },
-    "build": {
-      "clientA": {
-        "android": {
-          "buildType": "apk"
-        },
-        "ios": {
-          "buildType": "release"
-        }
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "preview",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "production": {
+      "env": {
+        "APP_VARIANT": "production",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "staging": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "staging",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "adg-dev": {
+      "extends": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "adg-preview": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "preview",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "adg-production": {
+      "extends": "production",
+      "env": {
+        "APP_VARIANT": "production",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "techedu-dev": {
+      "extends": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "CLIENT_NAME": "techedu"
+      }
+    },
+    "techedu-preview": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "preview",
+        "CLIENT_NAME": "techedu"
+      }
+    },
+    "techedu-production": {
+      "extends": "production",
+      "env": {
+        "APP_VARIANT": "production",
+        "CLIENT_NAME": "techedu"
+      }
+    },
+    "skillboost-dev": {
+      "extends": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "CLIENT_NAME": "skillboost"
+      }
+    },
+    "skillboost-preview": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "preview",
+        "CLIENT_NAME": "skillboost"
+      }
+    },
+    "skillboost-production": {
+      "extends": "production",
+      "env": {
+        "APP_VARIANT": "production",
+        "CLIENT_NAME": "skillboost"
+      }
+    }
+  },
+  "submit": {
+    "adg-production": {
+      "ios": {
+        "appleId": "1234567890",
+        "ascAppId": "1234567890",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
       },
-      "clientB": {
-        "android": {
-          "buildType": "apk"
-        },
-        "ios": {
-          "buildType": "release"
-        }
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
+      }
+    },
+    "techedu-production": {
+      "ios": {
+        "appleId": "2345678901",
+        "ascAppId": "2345678901",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
+      }
+    },
+    "skillboost-production": {
+      "ios": {
+        "appleId": "3456789012",
+        "ascAppId": "3456789012",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
       }
     }
   }
-  
+}
