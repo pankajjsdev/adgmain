@@ -256,6 +256,88 @@ const clients = {
       privacyPolicy: 'https://skillboost.academy/privacy',
       termsOfService: 'https://skillboost.academy/terms'
     }
+  },
+
+  // Example Client 4 - EduTech Solutions
+  edutech: {
+    name: 'EduTech Solutions',
+    slug: 'edutech-solutions',
+    displayName: 'EduTech Solutions',
+    description: 'Innovative Educational Technology Solutions',
+    
+    bundleIdentifier: 'com.edutech.solutions',
+    androidPackage: 'com.edutech.solutions',
+    
+    colors: {
+      primary: '#2E7D32',
+      secondary: '#4CAF50',
+      accent: '#8BC34A',
+      background: '#FFFFFF',
+      surface: '#F1F8E9',
+      text: '#1B5E20',
+      textSecondary: '#388E3C',
+      success: '#4CAF50',
+      warning: '#FF9800',
+      error: '#F44336',
+      light: {
+        primary: '#2E7D32',
+        background: '#FFFFFF',
+        surface: '#F1F8E9',
+        text: '#1B5E20',
+        textSecondary: '#388E3C',
+      },
+      dark: {
+        primary: '#4CAF50',
+        background: '#0D1B0F',
+        surface: '#1B5E20',
+        text: '#C8E6C9',
+        textSecondary: '#81C784',
+      }
+    },
+    
+    api: {
+      baseUrl: 'https://api.edutech-solutions.com',
+      version: 'v1',
+      timeout: 30000,
+      endpoints: {
+        auth: '/auth',
+        courses: '/courseManagement',
+        videos: '/video',
+        assignments: '/assignment',
+        tests: '/test',
+        banners: '/banner',
+        students: '/student'
+      }
+    },
+    
+    assets: {
+      icon: './assets/clients/edutech/icon.png',
+      adaptiveIcon: './assets/clients/edutech/adaptive-icon.png',
+      splash: './assets/clients/edutech/splash-icon.png',
+      logo: './assets/clients/edutech/logo.png',
+      favicon: './assets/clients/edutech/favicon.png'
+    },
+    
+    appStore: {
+      appleId: '4567890123',
+      googlePlayId: 'com.edutech.solutions'
+    },
+    
+    features: {
+      analytics: true,
+      pushNotifications: true,
+      socialLogin: true,
+      darkMode: true,
+      biometricAuth: true
+    },
+    
+    contact: {
+      email: 'support@edutech-solutions.com',
+      phone: '+1-800-EDU-TECH',
+      website: 'https://edutech-solutions.com',
+      privacyPolicy: 'https://edutech-solutions.com/privacy',
+      termsOfService: 'https://edutech-solutions.com/terms'
+    }
   }
 };
 

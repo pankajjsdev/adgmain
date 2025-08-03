@@ -93,6 +93,27 @@
         "APP_VARIANT": "production",
         "CLIENT_NAME": "skillboost"
       }
+    },
+    "edutech-dev": {
+      "extends": "development",
+      "env": {
+        "APP_VARIANT": "development",
+        "CLIENT_NAME": "edutech"
+      }
+    },
+    "edutech-preview": {
+      "extends": "preview",
+      "env": {
+        "APP_VARIANT": "preview",
+        "CLIENT_NAME": "edutech"
+      }
+    },
+    "edutech-production": {
+      "extends": "production",
+      "env": {
+        "APP_VARIANT": "production",
+        "CLIENT_NAME": "edutech"
+      }
     }
   },
   "submit": {
@@ -122,6 +143,17 @@
       "ios": {
         "appleId": "3456789012",
         "ascAppId": "3456789012",
+        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "production"
+      }
+    },
+    "edutech-production": {
+      "ios": {
+        "appleId": "4567890123",
+        "ascAppId": "4567890123",
         "appleTeamId": "YOUR_APPLE_TEAM_ID"
       },
       "android": {
