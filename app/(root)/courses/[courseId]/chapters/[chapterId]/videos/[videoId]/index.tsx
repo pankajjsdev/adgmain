@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl
-} from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useGlobalStyles } from '@/hooks/useGlobalStyles';
-import { VideoData } from '@/types/video';
-import useCourseStore from '@/store/courseStore';
-import { useVideoPlayer } from '@/hooks/useVideoPlayer';
-import { VideoQuestionModal } from '@/components/VideoQuestionModal';
-import { VideoPlayer } from '@/components/VideoPlayer';
 import { QuickOrientationTest } from '@/components/QuickOrientationTest';
+import { VideoPlayer } from '@/components/VideoPlayer';
+import { VideoQuestionModal } from '@/components/VideoQuestionModal';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import { useVideoPlayer } from '@/hooks/useVideoPlayer';
+import useCourseStore from '@/store/courseStore';
+import { VideoData } from '@/types/video';
 import { htmlToPlainText } from '@/utils/htmlUtils';
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VideoDetailScreen() {
   const { courseId, chapterId, videoId } = useLocalSearchParams<{
@@ -103,8 +103,8 @@ export default function VideoDetailScreen() {
           await fetchVideoDetails(videoId);
           // Then fetch questions and progress in parallel
           await Promise.all([
-            fetchVideoQuestions(videoId),
-            fetchVideoProgress(videoId)
+            // fetchVideoQuestions(videoId),
+            // fetchVideoProgress(videoId)
           ]);
         } catch (error) {
           console.error('Failed to fetch video data:', error);
@@ -448,6 +448,8 @@ export default function VideoDetailScreen() {
     }
   };
 
+  console.log("videoDatavideoData",videoData)
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView 
@@ -482,6 +484,7 @@ export default function VideoDetailScreen() {
               {/* Actual Video Player */}
               <VideoPlayer
                 videoUrl={videoData.videoUrl}
+                posterUrl={videoData.videoThumbnail} // Add poster thumbnail support
                 isPlaying={playerState?.isPlaying || false}
                 currentTime={playerState?.currentTime || 0}
                 duration={playerState?.duration || videoData.duration || 0}
@@ -496,6 +499,10 @@ export default function VideoDetailScreen() {
                 onLoad={(status) => {
                   // Handle video load
                   console.log('Video loaded:', status);
+                  // Update duration if not set
+                  if (status.durationMillis && !playerState?.duration) {
+                    console.log('Setting video duration:', status.durationMillis / 1000);
+                  }
                 }}
                 onFullscreenChange={(isFullscreen) => {
                   setIsVideoFullscreen(isFullscreen);

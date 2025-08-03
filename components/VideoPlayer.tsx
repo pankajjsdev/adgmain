@@ -1,19 +1,28 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform, StatusBar } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
-import { Ionicons } from '@expo/vector-icons';
-import * as ScreenOrientation from 'expo-screen-orientation';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import {
-  initializePortraitOrientation,
   enterFullscreenOrientation,
   exitFullscreenOrientation,
   getCurrentOrientation,
+  initializePortraitOrientation,
   unlockOrientation
 } from '@/utils/orientationUtils';
+import {
+  createVideoSource,
+  detectVideoFormat,
+  getFormatDisplayName,
+  isStreamingFormat,
+  validateVideoUrl,
+  VideoFormat
+} from '@/utils/videoFormatUtils';
+import { Ionicons } from '@expo/vector-icons';
+import { ResizeMode, Video } from 'expo-av';
+import * as ScreenOrientation from 'expo-screen-orientation';
+import React, { useEffect, useRef, useState } from 'react';
+import { Dimensions, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface VideoPlayerProps {
   videoUrl: string;
+  posterUrl?: string; // Add poster thumbnail support
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -30,6 +39,7 @@ const { width: screenWidth } = Dimensions.get('window');
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   videoUrl,
+  posterUrl,
   isPlaying,
   currentTime,
   duration,
@@ -47,17 +57,65 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showControls, setShowControls] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [originalOrientation, setOriginalOrientation] = useState<ScreenOrientation.Orientation | null>(null);
+  // Track original orientation for restoration (will be used when implementing orientation restore)
+  // const [originalOrientation, setOriginalOrientation] = useState<ScreenOrientation.Orientation | null>(null);
+  const [videoFormat, setVideoFormat] = useState<VideoFormat>(VideoFormat.UNKNOWN);
+  const [videoSource, setVideoSource] = useState<any>(null);
 
+  console.log("🎥 VideoPlayer Debug:", {
+    videoUrl,
+    posterUrl,
+    isPlaying,
+    currentTime,
+    duration
+  });
+  
+  // Initialize video format and source when videoUrl changes
   useEffect(() => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.playAsync();
-      } else {
-        videoRef.current.pauseAsync();
+    if (videoUrl) {
+      const validation = validateVideoUrl(videoUrl);
+      const format = detectVideoFormat(videoUrl);
+      const source = createVideoSource(videoUrl);
+      
+      console.log(`🎥 Video Format: ${getFormatDisplayName(format)}`);
+      console.log(`🔗 Video URL: ${videoUrl}`);
+      console.log(`🖼️ Poster URL: ${posterUrl || 'No poster'}`);
+      console.log(`✅ Validation: ${validation.message}`);
+      console.log(`📡 Is Streaming: ${isStreamingFormat(format)}`);
+      
+      setVideoFormat(format);
+      setVideoSource(source);
+      
+      if (!validation.isValid) {
+        console.warn('⚠️ Video URL validation failed:', validation.message);
       }
     }
-  }, [isPlaying, videoRef]);
+  }, [videoUrl, posterUrl]);
+  
+  // State to track if video is ready for playback control
+  const [isVideoReady, setIsVideoReady] = useState(false);
+
+  // Enhanced play/pause control with proper video readiness check
+  useEffect(() => {
+    if (videoRef.current && isVideoReady) {
+      if (isPlaying) {
+        console.log('🎬 Starting video playback...');
+        videoRef.current.playAsync().catch((error: any) => {
+          console.error('❌ Failed to play video:', error);
+        });
+      } else {
+        console.log('⏸️ Pausing video playback...');
+        videoRef.current.pauseAsync().catch((error: any) => {
+          console.error('❌ Failed to pause video:', error);
+        });
+      }
+    } else {
+      console.warn('⚠️ Video not ready for play/pause:', {
+        refExists: !!videoRef.current,
+        isVideoReady
+      });
+    }
+  }, [isPlaying, isVideoReady]);
 
   // Initialize orientation to portrait on component mount
   useEffect(() => {
@@ -102,7 +160,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (!isFullscreen) {
         // Entering fullscreen - switch to landscape
         const currentOrientation = await getCurrentOrientation();
-        setOriginalOrientation(currentOrientation);
+        // setOriginalOrientation(currentOrientation); // Commented out since variable is not used
         
         // Use cross-platform landscape orientation utility
         const success = await enterFullscreenOrientation();
@@ -174,21 +232,59 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       >
         <Video
           ref={videoRef}
-          source={{ uri: videoUrl }}
+          source={videoSource || { uri: videoUrl }}
           style={styles.video}
           resizeMode={ResizeMode.CONTAIN}
-          shouldPlay={false}
+          shouldPlay={false} // Let useEffect handle play/pause for better control
           isLooping={false}
+          useNativeControls={false}
+          // Add poster thumbnail support
+          posterSource={posterUrl ? { uri: posterUrl } : undefined}
+          usePoster={!!posterUrl}
+          posterStyle={styles.video}
+          // Enhanced configuration for streaming formats
+          progressUpdateIntervalMillis={isStreamingFormat(videoFormat) ? 1000 : 500}
+          positionMillis={undefined} // Let video player manage position
+          // Additional props for better streaming support
+          {...(isStreamingFormat(videoFormat) && {
+            // Streaming-specific optimizations
+            shouldCorrectPitch: true,
+            volume: 1.0,
+          })}
           onPlaybackStatusUpdate={(status: any) => {
             if (status.isLoaded) {
               onTimeUpdate(status);
               setIsBuffering(status.isBuffering);
-              if (status.durationMillis && !duration) {
-                onLoad(status);
+              
+              // Enhanced error handling for streaming formats
+              if (status.error && isStreamingFormat(videoFormat)) {
+                console.warn(`🚨 Streaming error for ${getFormatDisplayName(videoFormat)}:`, status.error);
               }
             }
           }}
-          onLoad={onLoad}
+          onLoad={(status: any) => {
+            console.log('🎥 Video loaded successfully:', {
+              duration: status.durationMillis,
+              isLoaded: status.isLoaded,
+              uri: status.uri
+            });
+            setIsVideoReady(true); // Mark video as ready for playback control
+            if (onLoad) {
+              onLoad(status);
+            }
+          }}
+          onLoadStart={() => {
+            console.log('🔄 Video loading started...');
+            setIsVideoReady(false); // Reset readiness when loading starts
+          }}
+          onError={(error: any) => {
+            console.error(`❌ Video load error for ${getFormatDisplayName(videoFormat)}:`, error);
+            setIsVideoReady(false); // Reset readiness on error
+          }}
+          onReadyForDisplay={() => {
+            console.log('✅ Video ready for display');
+            setIsVideoReady(true); // Ensure video is marked ready when display is ready
+          }}
         />
 
         {/* Video Controls Overlay */}
@@ -222,6 +318,20 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               />
             </TouchableOpacity>
 
+            {/* Video Format Indicator */}
+            {videoFormat !== VideoFormat.UNKNOWN && (
+              <View style={styles.formatIndicator}>
+                <Ionicons 
+                  name={isStreamingFormat(videoFormat) ? "radio" : "videocam"} 
+                  size={14} 
+                  color={colors.text.inverse} 
+                />
+                <Text style={styles.formatText}>
+                  {getFormatDisplayName(videoFormat)}
+                </Text>
+              </View>
+            )}
+            
             {/* Seek Restriction Notice */}
             {!canSeek && (
               <View style={styles.restrictionNotice}>
@@ -318,6 +428,23 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
     borderTopColor: 'transparent',
     // Add rotation animation here if needed
+  },
+  formatIndicator: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  formatText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '500',
+    marginLeft: 4,
   },
   restrictionNotice: {
     position: 'absolute',
