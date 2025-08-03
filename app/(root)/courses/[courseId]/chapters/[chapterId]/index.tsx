@@ -166,11 +166,16 @@ export default function ChapterDetails() {
     );
   }
 
+  // Calculate counts from API response arrays
+  const videosCount = currentChapter?.videos?.length || 0;
+  const assignmentsCount = currentChapter?.assignments?.length || 0;
+  const testsCount = currentChapter?.tests?.length || 0;
+  const notesCount = currentChapter?.notes?.length || 0;
+
   // Calculate overall progress
   const calculateProgress = () => {
     if (!currentChapter) return 0;
-    const total = (currentChapter.videosCount || 0) + (currentChapter.assignmentsCount || 0) + 
-                  (currentChapter.testsCount || 0) + (currentChapter.notesCount || 0);
+    const total = videosCount + assignmentsCount + testsCount + notesCount;
     if (total === 0) return 0;
     // Mock completed items - in real app, this would come from API
     const completed = Math.floor(total * 0.65); // 65% completion for demo
@@ -182,45 +187,49 @@ export default function ChapterDetails() {
       id: 'videos',
       title: 'Videos',
       icon: 'play-circle',
-      count: currentChapter?.videosCount || 0,
-      completed: Math.floor((currentChapter?.videosCount || 0) * 0.7),
+      count: videosCount,
+      completed: Math.floor(videosCount * 0.7),
       route: `/courses/${courseId}/chapters/${chapterId}/videos`,
       color: colors.brand.primary,
       gradient: [colors.brand.primary + '20', colors.brand.primary + '10'],
       description: 'Interactive video lessons',
+      duration: `${videosCount * 15} min`, // Estimated duration
     },
     {
       id: 'assignments',
       title: 'Assignments',
       icon: 'document-text',
-      count: currentChapter?.assignmentsCount || 0,
-      completed: Math.floor((currentChapter?.assignmentsCount || 0) * 0.5),
+      count: assignmentsCount,
+      completed: Math.floor(assignmentsCount * 0.5),
       route: `/courses/${courseId}/chapters/${chapterId}/assignments`,
       color: colors.status.info,
       gradient: [colors.status.info + '20', colors.status.info + '10'],
       description: 'Practice exercises',
+      duration: `${assignmentsCount * 30} min`, // Estimated duration
     },
     {
       id: 'tests',
       title: 'Tests',
       icon: 'school',
-      count: currentChapter?.testsCount || 0,
-      completed: Math.floor((currentChapter?.testsCount || 0) * 0.3),
+      count: testsCount,
+      completed: Math.floor(testsCount * 0.3),
       route: `/courses/${courseId}/chapters/${chapterId}/tests`,
       color: colors.status.warning,
       gradient: [colors.status.warning + '20', colors.status.warning + '10'],
       description: 'Knowledge assessments',
+      duration: `${testsCount * 45} min`, // Estimated duration
     },
     {
       id: 'notes',
       title: 'Notes',
       icon: 'book',
-      count: currentChapter?.notesCount || 0,
-      completed: Math.floor((currentChapter?.notesCount || 0) * 0.8),
+      count: notesCount,
+      completed: Math.floor(notesCount * 0.8),
       route: `/courses/${courseId}/chapters/${chapterId}/notes`,
       color: colors.status.success,
       gradient: [colors.status.success + '20', colors.status.success + '10'],
       description: 'Study materials',
+      duration: `${notesCount * 10} min`, // Estimated duration
     },
   ];
 

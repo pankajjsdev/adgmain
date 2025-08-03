@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import useOnboardingStore from '@/store/onboardingStore';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 
@@ -86,12 +87,13 @@ export default function OnboardingScreen() {
       await completeOnboarding();
       console.log('✅ Onboarding completed successfully');
       
-      // Reset the completing state after successful completion
-      setIsCompleting(false);
-      
-      // Don't navigate manually - let the root layout handle navigation
-      // based on authentication status. This prevents navigation loops.
-      console.log('🔄 Onboarding complete, root layout will handle navigation');
+      // Small delay to ensure state updates are processed
+      setTimeout(() => {
+        setIsCompleting(false);
+        console.log('🔄 Onboarding complete, navigating to auth screens');
+        // Force navigation to auth screens
+        router.replace('/(auth)/login');
+      }, 100);
       
     } catch (error) {
       console.error('❌ Failed to complete onboarding:', error);
@@ -109,12 +111,15 @@ export default function OnboardingScreen() {
           {
             text: 'Continue',
             onPress: async () => {
-              // Force complete onboarding and let root layout handle navigation
+              // Force complete onboarding and navigate
               try {
                 setIsCompleting(true);
                 await completeOnboarding();
-                setIsCompleting(false);
-                console.log('🔄 Force completion successful, root layout will handle navigation');
+                setTimeout(() => {
+                  setIsCompleting(false);
+                  console.log('🔄 Force completion successful, navigating to auth screens');
+                  router.replace('/(auth)/login');
+                }, 100);
               } catch (e) {
                 console.warn('Force completion failed:', e);
                 setIsCompleting(false);

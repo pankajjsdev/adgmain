@@ -3,11 +3,25 @@
  * Handles Google Sign-In integration with multi-tenant support
  */
 
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AuthSession from 'expo-auth-session';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import { getClientConfig, isFeatureEnabled } from './clientConfig';
+
+// Safely import GoogleSignin with fallback
+let GoogleSignin: any = null;
+let statusCodes: any = null;
+
+// Note: Using require() here is intentional for graceful fallback when native module is not available
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const googleSigninModule = require('@react-native-google-signin/google-signin');
+  GoogleSignin = googleSigninModule.GoogleSignin;
+  statusCodes = googleSigninModule.statusCodes;
+} catch (error: any) {
+  console.warn('Google Sign-In native module not available:', error?.message || 'Unknown error');
+  console.warn('Google Sign-In will use web-only authentication');
+}
 
 export interface GoogleAuthConfig {
   webClientId: string;
@@ -62,8 +76,8 @@ export const initializeGoogleAuth = async (): Promise<void> => {
 
     const config = getGoogleConfig();
     
-    if (Platform.OS !== 'web') {
-      // Configure Google Sign-In for mobile
+    if (Platform.OS !== 'web' && GoogleSignin) {
+      // Configure Google Sign-In for mobile (only if native module is available)
       await GoogleSignin.configure({
         webClientId: config.webClientId,
         iosClientId: config.iosClientId,
@@ -85,7 +99,7 @@ export const initializeGoogleAuth = async (): Promise<void> => {
  */
 export const checkGooglePlayServices = async (): Promise<boolean> => {
   try {
-    if (Platform.OS !== 'android') {
+    if (Platform.OS !== 'android' || !GoogleSignin) {
       return true;
     }
     
@@ -102,6 +116,12 @@ export const checkGooglePlayServices = async (): Promise<boolean> => {
  */
 const signInWithGoogleMobile = async (): Promise<GoogleAuthResult> => {
   try {
+    // If native module is not available, fallback to web authentication
+    if (!GoogleSignin) {
+      console.log('Native Google Sign-In not available, falling back to web authentication');
+      return await signInWithGoogleWeb();
+    }
+
     // Check if Google Play Services are available
     const hasPlayServices = await checkGooglePlayServices();
     if (!hasPlayServices) {
@@ -262,6 +282,12 @@ export const signInWithGoogle = async (): Promise<GoogleAuthResult> => {
       };
     }
 
+    // If native module is not available, use web authentication
+    if (!GoogleSignin) {
+      console.log('Native Google Sign-In not available, using web authentication');
+      return await signInWithGoogleWeb();
+    }
+
     // Choose appropriate sign-in method based on platform
     if (Platform.OS === 'web') {
       return await signInWithGoogleWeb();
@@ -282,7 +308,7 @@ export const signInWithGoogle = async (): Promise<GoogleAuthResult> => {
  */
 export const signOutFromGoogle = async (): Promise<void> => {
   try {
-    if (Platform.OS !== 'web') {
+    if (Platform.OS !== 'web' && GoogleSignin) {
       await GoogleSignin.signOut();
     }
     console.log('Signed out from Google successfully');
@@ -296,8 +322,8 @@ export const signOutFromGoogle = async (): Promise<void> => {
  */
 export const getCurrentGoogleUser = async (): Promise<GoogleUser | null> => {
   try {
-    if (Platform.OS === 'web') {
-      return null; // Web doesn't persist Google user
+    if (Platform.OS === 'web' || !GoogleSignin) {
+      return null; // Web doesn't persist Google user or native module not available
     }
     
     const userInfo = await GoogleSignin.getCurrentUser();
@@ -324,8 +350,8 @@ export const getCurrentGoogleUser = async (): Promise<GoogleUser | null> => {
  */
 export const isGoogleSignedIn = async (): Promise<boolean> => {
   try {
-    if (Platform.OS === 'web') {
-      // For web, we'd need to check stored tokens or session
+    if (Platform.OS === 'web' || !GoogleSignin) {
+      // For web or when native module is not available
       return false;
     }
     
