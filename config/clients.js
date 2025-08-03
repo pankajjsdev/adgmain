@@ -45,7 +45,7 @@ const clients = {
 
     // API Configuration
     api: {
-      baseUrl: 'https://api.adgclasses.com',
+      baseUrl: 'https://api.closm.com/api',
       version: 'v1',
       timeout: 30000,
       vendorCode: 'adg',

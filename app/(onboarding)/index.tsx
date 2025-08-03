@@ -5,11 +5,9 @@ import {
   Dimensions,
   TouchableOpacity,
   Image,
-  StatusBar,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import useOnboardingStore from '@/store/onboardingStore';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
@@ -54,7 +52,6 @@ const onboardingData = [
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isCompleting, setIsCompleting] = useState(false);
-  const router = useRouter();
   const { completeOnboarding } = useOnboardingStore();
   const { colors, spacing, typography, borderRadius, shadows } = useGlobalStyles();
 
@@ -89,10 +86,12 @@ export default function OnboardingScreen() {
       await completeOnboarding();
       console.log('✅ Onboarding completed successfully');
       
-      // Small delay to ensure state is properly updated
-      setTimeout(() => {
-        router.replace('/(auth)/login');
-      }, 100);
+      // Reset the completing state after successful completion
+      setIsCompleting(false);
+      
+      // Don't navigate manually - let the root layout handle navigation
+      // based on authentication status. This prevents navigation loops.
+      console.log('🔄 Onboarding complete, root layout will handle navigation');
       
     } catch (error) {
       console.error('❌ Failed to complete onboarding:', error);
@@ -108,8 +107,19 @@ export default function OnboardingScreen() {
             onPress: () => handleGetStarted()
           },
           {
-            text: 'Skip for now',
-            onPress: () => router.replace('/(auth)/login')
+            text: 'Continue',
+            onPress: async () => {
+              // Force complete onboarding and let root layout handle navigation
+              try {
+                setIsCompleting(true);
+                await completeOnboarding();
+                setIsCompleting(false);
+                console.log('🔄 Force completion successful, root layout will handle navigation');
+              } catch (e) {
+                console.warn('Force completion failed:', e);
+                setIsCompleting(false);
+              }
+            }
           }
         ]
       );
