@@ -1,13 +1,7 @@
+import { initializeApi } from '@/api';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import useAuthStore from '@/store/authStore';
 import useOnboardingStore from '@/store/onboardingStore';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, SafeAreaView, Text, useColorScheme, View, TouchableOpacity } from 'react-native';
-import { useGlobalStyles } from '@/hooks/useGlobalStyles';
-import { initializeApi } from '@/api';
-import { useFonts } from 'expo-font';
 import {
   Urbanist_300Light,
   Urbanist_400Regular,
@@ -16,6 +10,12 @@ import {
   Urbanist_700Bold,
   Urbanist_800ExtraBold,
 } from '@expo-google-fonts/urbanist';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -146,7 +146,8 @@ export default function RootLayout() {
 
   // Render the main app if user has completed onboarding and is authenticated
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    // <SafeAreaView style={styles.safeContainer}>
+    <>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack
           screenOptions={{
@@ -167,6 +168,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
-    </SafeAreaView>
+    {/* </SafeAreaView> */}
+    </>
   );
 }

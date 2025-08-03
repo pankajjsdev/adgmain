@@ -1,4 +1,4 @@
-import { QuickOrientationTest } from '@/components/QuickOrientationTest';
+// import { QuickOrientationTest } from '@/components/QuickOrientationTest';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { VideoQuestionModal } from '@/components/VideoQuestionModal';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
@@ -18,11 +18,13 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  View
+  View,
+  ImageBackground,
+  StatusBar
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export default function VideoDetailScreen() {
   const { courseId, chapterId, videoId } = useLocalSearchParams<{
@@ -35,6 +37,8 @@ export default function VideoDetailScreen() {
   const [activeTab, setActiveTab] = useState('description');
   const [refreshing, setRefreshing] = useState(false);
   const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
+  const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -1012,7 +1016,7 @@ export default function VideoDetailScreen() {
     }
   };
 
-  const progressPercentage = playerState ? ((playerState.currentTime || 0) / (playerState.duration || videoData.duration || 1)) * 100 : 0;
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -1020,41 +1024,43 @@ export default function VideoDetailScreen() {
   };
   const videoTypeInfo = getVideoTypeInfo();
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-      <Stack.Screen 
-        options={{ 
-          title: truncateTitle(videoData.videoTitle, 20),
-          headerStyle: { backgroundColor: colors.background.primary },
-          headerTintColor: colors.text.primary
-        }} 
-      />
-      <ScrollView 
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={handleRefresh}
-            tintColor={colors.brand.primary}
-            colors={[colors.brand.primary]}
-          />
-        }
-        showsVerticalScrollIndicator={false}
-        style={{ backgroundColor: colors.background.primary }}
-      >
-        {/* Enhanced Video Player Section */}
-        <View style={[styles.videoPlayerContainer, { backgroundColor: colors.background.secondary }]}>
-          {loading || !videoData.videoUrl ? (
-            <View style={[styles.videoPlaceholder, { backgroundColor: '#000' }]}>
-              <ActivityIndicator size="large" color={colors.brand.primary} />
-              <Text style={[styles.loadingVideoText, { color: colors.text.inverse }]}>Loading video...</Text>
-            </View>
-          ) : (
-            <>
-              {/* Modern Video Player with Enhanced Controls */}
+  // Removed unused renderVideoInformation function
+
+  if (showVideoPlayer) {
+    // Show full video player when play button is pressed
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+        <Stack.Screen 
+          options={{ 
+            title: truncateTitle(videoData?.videoTitle || 'Video', 20),
+            headerStyle: { backgroundColor: colors.background.primary },
+            headerTintColor: colors.text.primary
+          }} 
+        />
+        <ScrollView 
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={handleRefresh}
+              tintColor={colors.brand.primary}
+              colors={[colors.brand.primary]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+          style={{ backgroundColor: colors.background.primary }}
+        >
+          {/* Enhanced Video Player Section */}
+          <View style={[styles.videoPlayerContainer, { backgroundColor: colors.background.secondary }]}>
+            {loading || !videoData?.videoUrl ? (
+              <View style={[styles.videoPlaceholder, { backgroundColor: '#000' }]}>
+                <ActivityIndicator size="large" color={colors.brand.primary} />
+                <Text style={[styles.loadingVideoText, { color: colors.text.inverse }]}>Loading video...</Text>
+              </View>
+            ) : (
               <VideoPlayer
                 videoUrl={videoData.videoUrl}
                 posterUrl={videoData.videoThumbnail}
-                isPlaying={playerState?.isPlaying || false}
+                isPlaying={shouldAutoPlay || playerState?.isPlaying || false} // Auto-play when coming from poster
                 currentTime={playerState?.currentTime || 0}
                 duration={playerState?.duration || videoData.duration || 0}
                 canSeek={canSeek}
@@ -1067,8 +1073,13 @@ export default function VideoDetailScreen() {
                   }
                 }}
                 onLoad={(status) => {
+                  console.log('🎥 Video loaded in player:', status);
                   if (status.durationMillis && !playerState?.duration) {
                     // Duration handling logic
+                  }
+                  // Reset auto-play flag after video loads
+                  if (shouldAutoPlay) {
+                    setTimeout(() => setShouldAutoPlay(false), 1000);
                   }
                 }}
                 onFullscreenChange={(isFullscreen) => {
@@ -1076,220 +1087,357 @@ export default function VideoDetailScreen() {
                 }}
                 style={styles.video}
               />
-            </>
-          )}
-        </View>
+            )}
+          </View>
 
-        {/* Enhanced Video Information Card */}
-        <Animated.View 
-          style={[
-            {
-              margin: 16,
-              borderRadius: 12,
-              padding: 16,
-              backgroundColor: colors.background.secondary,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 3,
-              transform: [{ scale: scaleAnim }],
-              opacity: fadeAnim
-            }
-          ]}
-        >
-          {/* Video Header */}
-          <View style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: 16
-          }}>
-            <View style={{ flex: 1, marginRight: 16 }}>
-              <Text style={{ 
-                color: colors.text.primary,
-                fontSize: 20,
-                fontWeight: 'bold',
-                marginBottom: 8,
-                lineHeight: 28
-              }}>
-                {videoData.videoTitle}
-              </Text>
+          {/* Video Information and Tabs */}
+          {renderTabContent()}
+        </ScrollView>
+
+        {/* Video Question Modal */}
+        <VideoQuestionModal
+          visible={playerState?.showQuestion || false}
+          question={playerState?.currentQuestion}
+          onAnswer={handleModalAnswer}
+          onClose={playerState?.currentQuestion?.closeable ? closeQuestion : undefined}
+          isFullscreen={isVideoFullscreen}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Show poster/thumbnail design by default
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background.primary }}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      
+      {/* Hide the header for full-screen poster */}
+      <Stack.Screen 
+        options={{ 
+          headerShown: false
+        }} 
+      />
+      
+      <ScrollView 
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={handleRefresh}
+            tintColor={colors.brand.primary}
+            colors={[colors.brand.primary]}
+          />
+        }
+      >
+        {/* Full-Screen Poster/Thumbnail Section */}
+        <View style={{ position: 'relative' as const }}>
+          <ImageBackground
+            source={{ 
+              uri: videoData?.videoThumbnail || 'https://via.placeholder.com/400x600/1a1a1a/ffffff?text=Video+Poster' 
+            }}
+            style={{
+              width: screenWidth,
+              height: screenHeight * 0.7, // 70% of screen height
+              justifyContent: 'center' as const,
+              alignItems: 'center' as const,
+            }}
+            resizeMode="cover"
+          >
+            {/* Dark overlay for better contrast */}
+            <View style={{
+              position: 'absolute' as const,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            }} />
+            
+            {/* Back button */}
+            <TouchableOpacity
+              style={{
+                position: 'absolute' as const,
+                top: 50,
+                left: 20,
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                justifyContent: 'center' as const,
+                alignItems: 'center' as const,
+                zIndex: 10,
+              }}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            
+            {/* Action buttons (bookmark, share, download) */}
+            <View style={{
+              position: 'absolute' as const,
+              top: 50,
+              right: 20,
+              flexDirection: 'row' as const,
+              gap: 12,
+              zIndex: 10,
+            }}>
+              <TouchableOpacity
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  justifyContent: 'center' as const,
+                  alignItems: 'center' as const,
+                }}
+              >
+                <Ionicons name="bookmark-outline" size={24} color="white" />
+              </TouchableOpacity>
               
-              {/* Video Metadata */}
-              <View style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                gap: 16
-              }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="time-outline" size={16} color={colors.text.secondary} />
-                  <Text style={{ color: colors.text.secondary, fontSize: 14, fontWeight: '500' }}>
-                    {formatDuration(videoData.duration || 0)}
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="folder-outline" size={16} color={colors.text.secondary} />
-                  <Text style={{ color: colors.text.secondary, fontSize: 14, fontWeight: '500' }}>
-                    Chapter {chapterId}
-                  </Text>
-                </View>
-                
-                {isVideoCompleted && (
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 20,
-                    backgroundColor: colors.status.success,
-                    gap: 4
-                  }}>
-                    <Ionicons name="checkmark-circle" size={16} color={colors.text.inverse} />
-                    <Text style={{ color: colors.text.inverse, fontSize: 12, fontWeight: '600' }}>Completed</Text>
-                  </View>
-                )}
-              </View>
+              <TouchableOpacity
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  justifyContent: 'center' as const,
+                  alignItems: 'center' as const,
+                }}
+              >
+                <Ionicons name="share-outline" size={24} color="white" />
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  justifyContent: 'center' as const,
+                  alignItems: 'center' as const,
+                }}
+              >
+                <Ionicons name="download-outline" size={24} color="white" />
+              </TouchableOpacity>
             </View>
             
-            {/* Video Type Badge */}
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 12,
-              backgroundColor: videoTypeInfo.color,
-              gap: 6,
-              minWidth: 120,
-              justifyContent: 'center'
-            }}>
-              <Ionicons name={videoTypeInfo.icon as any} size={20} color={colors.text.inverse} />
-              <Text style={{ color: colors.text.inverse, fontSize: 14, fontWeight: 'bold', textAlign: 'center' }}>
-                {videoTypeInfo.badge}
-              </Text>
-            </View>
-          </View>
-
-          {/* Progress Section */}
-          {playerState && (
-            <View style={{
-              padding: 16,
-              borderRadius: 8,
-              backgroundColor: colors.surface.card,
-              marginTop: 16
-            }}>
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 8
-              }}>
-                <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: '600' }}>Your Progress</Text>
-                <Text style={{ color: colors.brand.primary, fontSize: 20, fontWeight: 'bold' }}>
-                  {Math.round(progressPercentage)}%
-                </Text>
-              </View>
-              
-              <View style={{
-                height: 8,
-                borderRadius: 20,
-                backgroundColor: colors.surface.tertiary,
-                overflow: 'hidden',
-                marginBottom: 8
-              }}>
-                <View style={{
-                  height: '100%',
-                  width: `${progressPercentage}%`,
-                  backgroundColor: colors.brand.primary,
-                  borderRadius: 20,
-                  minWidth: 2
-                }} />
-              </View>
-              
-              <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}>
-                <Text style={{ color: colors.text.secondary, fontSize: 14, fontWeight: '500' }}>
-                  {formatDuration(playerState.currentTime || 0)} / {formatDuration(playerState.duration || videoData.duration || 0)}
-                </Text>
-                
-                {!canSeek && (
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 8,
-                    paddingVertical: 4,
-                    borderRadius: 8,
-                    backgroundColor: colors.status.warning,
-                    gap: 4
-                  }}>
-                    <Ionicons name="lock-closed" size={12} color={colors.text.inverse} />
-                    <Text style={{ color: colors.text.inverse, fontSize: 12, fontWeight: '500' }}>
-                      Seeking Restricted
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          )}
-
-          {/* Video Type Information */}
-          <View style={{
-            padding: 16,
-            borderRadius: 8,
-            backgroundColor: colors.surface.overlay,
-            marginTop: 16
-          }}>
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 8,
-              gap: 8
-            }}>
-              <Ionicons name={videoTypeInfo.icon as any} size={24} color={videoTypeInfo.color} />
-              <Text style={{ color: colors.text.primary, fontSize: 18, fontWeight: '600' }}>
-                {videoTypeInfo.title}
-              </Text>
-            </View>
-            <Text style={{ color: colors.text.secondary, fontSize: 14, lineHeight: 20 }}>
-              {videoTypeInfo.description}
-            </Text>
-          </View>
-        </Animated.View>
-
-        {/* Tabs */}
-        <View style={styles.tabsContainer}>
-          {tabs.map((tab) => (
+            {/* Central Play Button */}
             <TouchableOpacity
-              key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-              onPress={() => setActiveTab(tab.id)}
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                justifyContent: 'center' as const,
+                alignItems: 'center' as const,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+                elevation: 8,
+              }}
+              onPress={() => {
+                console.log('🎬 Poster play button pressed');
+                setShouldAutoPlay(true); // Set auto-play flag
+                setShowVideoPlayer(true);
+                // Also trigger the hook's play function as backup
+                setTimeout(() => {
+                  console.log('🎬 Triggering backup auto-play after poster click');
+                  if (togglePlayPause && !playerState?.isPlaying) {
+                    togglePlayPause();
+                  }
+                }, 800); // Delay to ensure video player is fully mounted and ready
+              }}
+              activeOpacity={0.8}
             >
               <Ionicons 
-                name={tab.icon as any} 
-                size={20} 
-                color={activeTab === tab.id ? colors.brand.primary : colors.text.secondary} 
+                name="play" 
+                size={32} 
+                color={colors.brand.primary} 
+                style={{ marginLeft: 4 }} // Slight offset for visual balance
               />
-              <Text style={[
-                styles.tabText, 
-                activeTab === tab.id && { color: colors.brand.primary, fontWeight: '600' }
-              ]}>
-                {tab.title}
-              </Text>
             </TouchableOpacity>
-          ))}
+            
+            {/* Duration badge */}
+            <View style={{
+              position: 'absolute' as const,
+              bottom: 20,
+              right: 20,
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderRadius: 16,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            }}>
+              <Text style={{
+                color: 'white',
+                fontSize: 14,
+                fontWeight: '600' as const,
+              }}>
+                {formatDuration(videoData?.duration || 0)}
+              </Text>
+            </View>
+          </ImageBackground>
         </View>
 
-        {/* Tab Content */}
-        {renderTabContent()}
-        
-        {/* Quick Orientation Test - For testing fullscreen functionality */}
-        <QuickOrientationTest />
+        {/* Video Details Section */}
+        <View style={{
+          backgroundColor: colors.background.primary,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          marginTop: -24,
+          paddingTop: 24,
+          paddingHorizontal: 20,
+          minHeight: screenHeight * 0.4,
+        }}>
+          {/* Video Title and Basic Info */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{
+              fontSize: 24,
+              fontWeight: 'bold' as const,
+              color: colors.text.primary,
+              marginBottom: 8,
+              lineHeight: 32,
+            }}>
+              {videoData?.videoTitle || 'Video Title'}
+            </Text>
+            
+            <Text style={{
+              fontSize: 16,
+              color: colors.text.secondary,
+              lineHeight: 24,
+              marginBottom: 16,
+            }}>
+              {htmlToPlainText(videoData?.videoDescription || 'Video description will appear here.')}
+            </Text>
+            {/* Video Metadata Row */}
+            <View style={{
+              flexDirection: 'row' as const,
+              alignItems: 'center',
+              gap: 20,
+              paddingVertical: 16,
+              paddingHorizontal: 20,
+              backgroundColor: colors.surface.card,
+              borderRadius: 16,
+              marginBottom: 20,
+            }}>
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="time-outline" size={20} color={colors.brand.primary} />
+                <Text style={{ 
+                  color: colors.text.primary, 
+                  fontSize: 16, 
+                  fontWeight: '600' as const,
+                  marginTop: 4 
+                }}>
+                  {formatDuration(videoData?.duration || 0)}
+                </Text>
+                <Text style={{ 
+                  color: colors.text.secondary, 
+                  fontSize: 12,
+                  marginTop: 2
+                }}>
+                  Duration
+                </Text>
+              </View>
+              
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name={videoTypeInfo.icon as any} size={20} color={colors.brand.primary} />
+                <Text style={{ 
+                  color: colors.text.primary, 
+                  fontSize: 16, 
+                  fontWeight: '600' as const,
+                  marginTop: 4 
+                }}>
+                  {videoTypeInfo.badge}
+                </Text>
+                <Text style={{ 
+                  color: colors.text.secondary, 
+                  fontSize: 12,
+                  marginTop: 2
+                }}>
+                  Type
+                </Text>
+              </View>
+              
+              <View style={{ alignItems: 'center' }}>
+                <Ionicons name="folder-outline" size={20} color={colors.brand.primary} />
+                <Text style={{ 
+                  color: colors.text.primary, 
+                  fontSize: 16, 
+                  fontWeight: '600' as const,
+                  marginTop: 4 
+                }}>
+                  {chapterId}
+                </Text>
+                <Text style={{ 
+                  color: colors.text.secondary, 
+                  fontSize: 12,
+                  marginTop: 2
+                }}>
+                  Chapter
+                </Text>
+              </View>
+            </View>
+          </View>
+          
+          {/* Tabs Section */}
+          <View style={{
+            marginTop: 20,
+            marginBottom: 20,
+          }}>
+            <View style={{
+              flexDirection: 'row' as const,
+              backgroundColor: colors.surface.secondary,
+              borderRadius: 12,
+              padding: 4,
+              marginBottom: 20,
+            }}>
+              {tabs.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={[
+                    {
+                      flex: 1,
+                      flexDirection: 'row' as const,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      gap: 8,
+                    },
+                    activeTab === tab.id && {
+                      backgroundColor: colors.brand.primary,
+                    }
+                  ]}
+                  onPress={() => setActiveTab(tab.id)}
+                >
+                  <Ionicons 
+                    name={tab.icon as any} 
+                    size={18} 
+                    color={activeTab === tab.id ? 'white' : colors.text.secondary} 
+                  />
+                  <Text style={[
+                    {
+                      fontSize: 14,
+                      fontWeight: '500' as const,
+                      color: colors.text.secondary,
+                    },
+                    activeTab === tab.id && { 
+                      color: 'white', 
+                      fontWeight: '600' as const 
+                    }
+                  ]}>
+                    {tab.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Tab Content */}
+            {renderTabContent()}
+          </View>
+        </View>
       </ScrollView>
 
       {/* Video Question Modal */}
@@ -1300,6 +1448,6 @@ export default function VideoDetailScreen() {
         onClose={playerState?.currentQuestion?.closeable ? closeQuestion : undefined}
         isFullscreen={isVideoFullscreen}
       />
-    </SafeAreaView>
+    </View>
   );
 }

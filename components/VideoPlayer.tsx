@@ -169,7 +169,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     } else {
       console.warn('⚠️ Video not ready for play/pause:', {
         refExists: !!videoRef.current,
-        isVideoReady
+        isVideoReady,
+        isPlaying
       });
     }
   }, [isPlaying, isVideoReady]);
@@ -323,9 +324,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             console.log('🎥 Video loaded successfully:', {
               duration: status.durationMillis,
               isLoaded: status.isLoaded,
-              uri: status.uri
+              uri: status.uri,
+              shouldAutoPlay: isPlaying
             });
             setIsVideoReady(true); // Mark video as ready for playback control
+            
+            // Auto-start playback if isPlaying prop is true
+            if (isPlaying && videoRef.current) {
+              setTimeout(() => {
+                console.log('🎬 Auto-starting video after load...');
+                videoRef.current?.playAsync().catch((error: any) => {
+                  console.error('❌ Failed to auto-start video:', error);
+                });
+              }, 100);
+            }
+            
             if (onLoad) {
               onLoad(status);
             }
