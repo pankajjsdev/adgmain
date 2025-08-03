@@ -114,6 +114,34 @@
         "APP_VARIANT": "production",
         "CLIENT_NAME": "edutech"
       }
+    },
+    "adg-staging": {
+      "extends": "staging",
+      "env": {
+        "APP_VARIANT": "staging",
+        "CLIENT_NAME": "adg"
+      }
+    },
+    "techedu-staging": {
+      "extends": "staging",
+      "env": {
+        "APP_VARIANT": "staging",
+        "CLIENT_NAME": "techedu"
+      }
+    },
+    "skillboost-staging": {
+      "extends": "staging",
+      "env": {
+        "APP_VARIANT": "staging",
+        "CLIENT_NAME": "skillboost"
+      }
+    },
+    "edutech-staging": {
+      "extends": "staging",
+      "env": {
+        "APP_VARIANT": "staging",
+        "CLIENT_NAME": "edutech"
+      }
     }
   },
   "submit": {
