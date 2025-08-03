@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from '@/api';
+import { apiGet, apiPost, apiPatch } from '@/api';
 import { create } from 'zustand';
 
 // Course interfaces
@@ -812,13 +812,21 @@ const useCourseStore = create<CourseState>((set, get) => ({
         progress: response.data
       });
       
-      // Store progress in videoDetails
+      // Store progress in videoDetails with proper structure
       set(state => ({ 
         videoDetails: {
           ...state.videoDetails,
           [videoId]: {
             ...state.videoDetails[videoId],
-            progress: response.data
+            progress: response.data,
+            // Extract key fields for easier access
+            currentDuration: response.data?.currentDuration || 0,
+            totalDuration: response.data?.totalDuration || 0,
+            isCompleted: response.data?.isCompleted === "true",
+            correctlyAnsweredQuestions: response.data?.meta?.correctlyAnsweredQuestions || [],
+            lastCorrectCheckpoint: response.data?.meta?.lastCorrectCheckpoint || 0,
+            submission: response.data?.meta?.submission || [],
+            videoType: response.data?.meta?.videoType
           }
         },
         loading: false 
@@ -829,70 +837,107 @@ const useCourseStore = create<CourseState>((set, get) => ({
     }
   },
 
-  updateVideoProgress: async (videoId: string, progress: any) => {
+  updateVideoProgress: async (videoId: string, progressData: any) => {
     try {
-      const watchedDuration = progress.currentTime || 0;
-      const progressData = {
+      const { 
+        courseId, 
+        chapterId,
+        currentTime, 
+        totalDuration, 
+        completed, 
+        videoType,
+        correctlyAnsweredQuestions = [],
+        lastCorrectCheckpoint,
+        submission = [],
+        alreadySubmit = false
+      } = progressData;
+
+      // Prepare payload matching the API structure
+      const payload = {
         videoId,
-        watchedDuration,
-        completed: progress.completed || false,
-        progress: progress.progress || 0,
-        // Include additional metadata for better tracking
-        lastCorrectQuestionTime: progress.lastCorrectQuestionTime,
-        answeredQuestions: progress.answeredQuestions || [],
-        videoType: progress.videoType,
-        sessionData: {
-          timestamp: new Date().toISOString(),
-          deviceInfo: 'mobile', // Could be enhanced with actual device info
-          ...progress.meta // Any additional metadata
+        courseId,
+        chapterId,
+        currentDuration: currentTime,
+        totalDuration,
+        isCompleted: completed ? "true" : "false",
+        meta: {
+          submission: submission,
+          videoType: videoType,
+          lastCorrectCheckpoint: videoType === "interactive" ? lastCorrectCheckpoint : undefined,
+          correctlyAnsweredQuestions: Array.from(correctlyAnsweredQuestions),
+          // Add timestamp for tracking
+          submittedAt: new Date().toISOString()
         }
       };
+
+      // Use POST for new submissions, PATCH for updates
+      const method = alreadySubmit ? 'PATCH' : 'POST';
+      const endpoint = alreadySubmit ? `/video/student/submit/${videoId}` : '/video/student/submit';
       
-      await apiPost(`/video/student/progress`, progressData);
+      let response;
+      if (method === 'POST') {
+        response = await apiPost(endpoint, payload);
+      } else {
+        response = await apiPatch(endpoint, payload);
+      }
+      
+      console.log('📊 Video Progress Updated:', {
+        videoId,
+        method,
+        currentTime,
+        completed,
+        response: response.data
+      });
       
       // Update local state
       const { videos } = get();
       const updatedVideos = videos.map(video => 
         video.id === videoId 
-          ? { ...video, watchedDuration, isWatched: watchedDuration > 0 }
+          ? { ...video, watchedDuration: currentTime, isWatched: currentTime > 0 }
           : video
       );
       set({ videos: updatedVideos });
+      
+      return response.data;
     } catch (error: any) {
-      console.log('Failed to update video progress:', error.message);
+      console.error('❌ Failed to update video progress:', error);
+      throw error;
     }
   },
   
-  // Submit video question answer
+  // Submit video question answer - now integrated with video progress
   submitVideoQuestion: async (videoId: string, questionId: string, answer: string, questionData: any) => {
     try {
-      const submissionData = {
+      // Create submission entry for the meta.submission array
+      const submissionEntry = {
+        questionId,
+        answer,
+        isCorrect: questionData.isCorrect,
+        attemptStatus: questionData.isCorrect ? "1" : "0",
+        points: questionData.isCorrect ? "1" : "0",
+        explanation: questionData.explanation || "",
+        // Add timing and metadata
+        timestamp: questionData.timestamp || new Date().toISOString(),
+        timeToAnswer: questionData.timeToAnswer,
+        questionType: questionData.questionType
+      };
+      
+      console.log('📝 Video Question Submitted:', {
         videoId,
         questionId,
         answer,
         isCorrect: questionData.isCorrect,
-        timestamp: questionData.timestamp,
-        timeToAnswer: questionData.timeToAnswer,
-        questionType: questionData.questionType,
-        // Include meta data for analytics and tracking
-        meta: {
-          videoType: questionData.videoType,
-          questionTriggerTime: questionData.questionTriggerTime,
-          userSeekBehavior: questionData.userSeekBehavior,
-          attemptNumber: questionData.attemptNumber || 1,
-          sessionId: questionData.sessionId,
-          deviceInfo: 'mobile',
-          submittedAt: new Date().toISOString(),
-          ...questionData.additionalMeta
-        }
+        submissionEntry
+      });
+      
+      return { 
+        success: true, 
+        data: submissionEntry,
+        // Return the submission entry to be added to the video progress meta
+        submissionEntry
       };
-      
-      // Submit to API - you may need to adjust the endpoint
-      await apiPost('/video/student/question/submit', submissionData);
-      
-      return { success: true, data: submissionData };
     } catch (error: any) {
-      console.log('Failed to submit video question:', error.message);
+      console.error('❌ Failed to submit video question:', error);
       throw new Error(`Failed to submit question: ${error.message}`);
     }
   },

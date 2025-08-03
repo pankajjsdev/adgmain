@@ -56,6 +56,7 @@ export const Colors = {
     surface: {
       primary: '#FFFFFF',
       secondary: neutral[50],
+      tertiary: neutral[100],
       elevated: '#FFFFFF',
       card: '#FFFFFF',
       modal: '#FFFFFF',
@@ -162,6 +163,7 @@ export const Colors = {
     surface: {
       primary: neutral[900],
       secondary: neutral[800],
+      tertiary: neutral[700],
       elevated: neutral[800],
       card: neutral[900],
       modal: neutral[800],

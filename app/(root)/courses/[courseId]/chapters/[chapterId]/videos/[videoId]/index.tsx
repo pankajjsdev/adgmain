@@ -15,9 +15,12 @@ import { VideoData } from '@/types/video';
 import useCourseStore from '@/store/courseStore';
 import { useVideoPlayer } from '@/hooks/useVideoPlayer';
 import { VideoQuestionModal } from '@/components/VideoQuestionModal';
+import { VideoPlayer } from '@/components/VideoPlayer';
+import { QuickOrientationTest } from '@/components/QuickOrientationTest';
+import { htmlToPlainText } from '@/utils/htmlUtils';
 
 export default function VideoDetailScreen() {
-  const { chapterId, videoId } = useLocalSearchParams<{
+  const { courseId, chapterId, videoId } = useLocalSearchParams<{
     courseId: string;
     chapterId: string;
     videoId: string;
@@ -26,6 +29,7 @@ export default function VideoDetailScreen() {
   const { styles, colors } = useGlobalStyles();
   const [activeTab, setActiveTab] = useState('description');
   const [refreshing, setRefreshing] = useState(false);
+  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
   
   // Course store
   const { 
@@ -43,16 +47,44 @@ export default function VideoDetailScreen() {
   // Get video progress data from videoDetails
   const videoProgress = videoData?.progress || null;
 
+  // Enhanced video data with route parameters - provide default structure if null
+  const enhancedVideoData = videoData ? {
+    ...videoData,
+    // Ensure courseId and chapterId are available from route params
+    courseId: videoData.courseId || courseId,
+    chapterId: videoData.chapterId || chapterId
+  } : {
+    // Default video data structure to prevent hook errors
+    _id: videoId || '',
+    courseId: courseId || '',
+    chapterId: chapterId || '',
+    createdAt: new Date().toISOString(),
+    duration: 0,
+    videoTitle: 'Loading...',
+    videoDescription: 'Loading video details...',
+    videoThumbnail: '',
+    videoUrl: '',
+    questions: [],
+    isSubmitSingleEveryTime: false,
+    videoType: 'basic' as const,
+    videoResources: [],
+    meta: {
+      videoType: 0,
+      timeToShowQuestion: '0'
+    }
+  };
+
   // Video player hook for comprehensive video management
   const {
     playerState,
     handleQuestionAnswer,
+    handleTimeUpdate,
     togglePlayPause,
     closeQuestion,
     canSeek,
     isVideoCompleted
   } = useVideoPlayer({
-    videoData: videoData!,
+    videoData: enhancedVideoData,
     onVideoComplete: () => {
       console.log('Video completed!');
       // Video completion is now handled by the hook itself
@@ -208,7 +240,9 @@ export default function VideoDetailScreen() {
 
             {/* Description */}
             <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.description}>{videoData.videoDescription}</Text>
+            <Text style={styles.description}>
+              {htmlToPlainText(videoData.videoDescription || 'No description available')}
+            </Text>
             
             {/* Video Stats */}
             <View style={styles.statsContainer}>
@@ -438,62 +472,68 @@ export default function VideoDetailScreen() {
 
         {/* Video Player */}
         <View style={styles.videoPlayerContainer}>
-          {playerState.isLoading ? (
+          {loading || !videoData.videoUrl ? (
             <View style={styles.videoPlaceholder}>
               <ActivityIndicator size="large" color={colors.text.inverse} />
               <Text style={styles.loadingVideoText}>Loading video...</Text>
             </View>
           ) : (
             <>
-              {/* Video Player Placeholder - Replace with actual Video component when expo-av is available */}
-              <View style={styles.videoPlaceholder}>
-                <TouchableOpacity 
-                  style={styles.playPauseButton}
-                  onPress={togglePlayPause}
-                >
-                  <Ionicons 
-                    name={playerState.isPlaying ? "pause" : "play"} 
-                    size={48} 
-                    color={colors.text.inverse} 
-                  />
-                </TouchableOpacity>
+              {/* Actual Video Player */}
+              <VideoPlayer
+                videoUrl={videoData.videoUrl}
+                isPlaying={playerState?.isPlaying || false}
+                currentTime={playerState?.currentTime || 0}
+                duration={playerState?.duration || videoData.duration || 0}
+                canSeek={canSeek}
+                onPlayPause={togglePlayPause}
+                onTimeUpdate={(status) => {
+                  // Handle time updates from video player
+                  if (handleTimeUpdate) {
+                    handleTimeUpdate(status);
+                  }
+                }}
+                onLoad={(status) => {
+                  // Handle video load
+                  console.log('Video loaded:', status);
+                }}
+                onFullscreenChange={(isFullscreen) => {
+                  setIsVideoFullscreen(isFullscreen);
+                }}
+                style={styles.video}
+              />
                 
-                <Text style={styles.loadingVideoText}>
-                  {playerState.isPlaying ? 'Playing...' : 'Tap to play'}
-                </Text>
-                
-                {/* Video Type Badge */}
-                <View style={[styles.videoTypeBadge, { backgroundColor: videoTypeInfo.color }]}>
-                  <Ionicons name={videoTypeInfo.icon as any} size={16} color={colors.text.inverse} />
-                  <Text style={styles.videoTypeBadgeText}>{videoTypeInfo.title}</Text>
+              {/* Video Type Badge */}
+              <View style={[styles.videoTypeBadge, { backgroundColor: videoTypeInfo.color }]}>
+                <Ionicons name={videoTypeInfo.icon as any} size={16} color={colors.text.inverse} />
+                <Text style={styles.videoTypeBadgeText}>{videoTypeInfo.title}</Text>
+              </View>
+
+              {/* Seeking Restriction Notice */}
+              {!canSeek && (
+                <View style={styles.restrictionNotice}>
+                  <Ionicons name="lock-closed" size={16} color={colors.text.inverse} />
+                  <Text style={styles.restrictionText}>
+                    {isVideoCompleted ? 'Video completed - seeking now allowed' : 'Complete video to enable seeking'}
+                  </Text>
                 </View>
+              )}
                 
-                {/* Seek Restriction Notice */}
-                {!canSeek && (
-                  <View style={styles.restrictionNotice}>
-                    <Ionicons name="lock-closed" size={16} color={colors.text.inverse} />
-                    <Text style={styles.restrictionText}>
-                      {isVideoCompleted ? 'Video completed - seeking now allowed' : 'Complete video to enable seeking'}
-                    </Text>
+              {/* Progress Bar */}
+              <View style={styles.controlsOverlay}>
+                <View style={styles.customProgressContainer}>
+                  <View style={styles.customProgressBar}>
+                    <View 
+                      style={[
+                        styles.customProgressFill,
+                        { width: `${(playerState.currentTime / playerState.duration) * 100}%` }
+                      ]}
+                    />
                   </View>
-                )}
-                
-                {/* Progress Bar */}
-                <View style={styles.controlsOverlay}>
-                  <View style={styles.customProgressContainer}>
-                    <View style={styles.customProgressBar}>
-                      <View 
-                        style={[
-                          styles.customProgressFill,
-                          { width: `${(playerState.currentTime / playerState.duration) * 100}%` }
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.timeText}>
-                      {Math.floor(playerState.currentTime / 60)}:{(Math.floor(playerState.currentTime) % 60).toString().padStart(2, '0')} / 
-                      {Math.floor(playerState.duration / 60)}:{(Math.floor(playerState.duration) % 60).toString().padStart(2, '0')}
-                    </Text>
-                  </View>
+                  <Text style={styles.timeText}>
+                    {Math.floor(playerState.currentTime / 60)}:{(Math.floor(playerState.currentTime) % 60).toString().padStart(2, '0')} / 
+                    {Math.floor(playerState.duration / 60)}:{(Math.floor(playerState.duration) % 60).toString().padStart(2, '0')}
+                  </Text>
                 </View>
               </View>
             </>
@@ -531,6 +571,9 @@ export default function VideoDetailScreen() {
 
         {/* Tab Content */}
         {renderTabContent()}
+        
+        {/* Quick Orientation Test - For testing fullscreen functionality */}
+        <QuickOrientationTest />
       </ScrollView>
 
       {/* Video Question Modal */}
@@ -539,6 +582,7 @@ export default function VideoDetailScreen() {
         question={playerState.currentQuestion}
         onAnswer={handleQuestionAnswer}
         onClose={playerState.currentQuestion?.closeable ? closeQuestion : undefined}
+        isFullscreen={isVideoFullscreen}
       />
     </SafeAreaView>
   );

@@ -212,7 +212,7 @@ export default function CourseDetails() {
             <FlatList
               data={chapters}
               renderItem={renderChapter}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => item._id}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
             />

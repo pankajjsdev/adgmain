@@ -1,9 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Video } from 'expo-av';
-import { VideoData, VideoProgress, VideoPlayerState } from '@/types/video';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import useCourseStore from '@/store/courseStore';
-import { useMediaTracking } from '@/hooks/useAnalytics';
+import { VideoData, VideoPlayerState, VideoProgress } from '@/types/video';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UseVideoPlayerProps {
   videoData: VideoData;
@@ -33,11 +31,20 @@ export const useVideoPlayer = ({
     }
   });
 
+  // New state variables for the updated API structure
+  const [videoStatusData, setVideoStatusData] = useState<any>(null);
+  const [alreadySubmit, setAlreadySubmit] = useState(false);
+  const [correctlyAnsweredQuestions, setCorrectlyAnsweredQuestions] = useState<Set<string>>(new Set());
+  const [lastCorrectCheckpoint, setLastCorrectCheckpoint] = useState(0);
+  const [videoInitialPosition, setVideoInitialPosition] = useState(0);
+  const [initialVideoSetup, setInitialVideoSetup] = useState(false);
+  const [submission, setSubmission] = useState<any[]>([]);
+
   const videoRef = useRef<any>(null);
   const questionTimeoutsRef = useRef<number[]>([]);
 
   // Get course store methods
-  const { updateVideoProgress, submitVideoQuestion } = useCourseStore();
+  const { updateVideoProgress, submitVideoQuestion, fetchVideoProgress } = useCourseStore();
   
   // Determine if user can seek based on video type and completion status
   function getCanSeek(videoType: VideoData['videoType'], completed: boolean): boolean {
@@ -53,33 +60,87 @@ export const useVideoPlayer = ({
     }
   }
 
-  // Initialize video progress from storage
+  // Initialize video progress from API
   useEffect(() => {
-    if (!videoData) return;
+    if (!videoData?._id || initialVideoSetup) return;
     
     const loadProgress = async () => {
       try {
-        const stored = await AsyncStorage.getItem(`video_progress_${videoData._id}`);
-        if (stored) {
-          const progress: VideoProgress = JSON.parse(stored);
+        console.log(`[VIDEO PLAYER] Initializing video: ${videoData._id}`);
+        
+        // Fetch video status from API using GET /video/student/submit/{videoId}
+        await fetchVideoProgress(videoData._id);
+        
+        // Get the fetched data from course store
+        const courseStore = useCourseStore.getState();
+        const videoStatus = courseStore.videoDetails[videoData._id];
+        
+        if (videoStatus?.progress) {
+          console.log(`[VIDEO PLAYER] Found existing submission:`, videoStatus.progress);
+          setVideoStatusData(videoStatus.progress);
+          setAlreadySubmit(true); // Mark as already submitted for PATCH requests
+
+          if (videoStatus.correctlyAnsweredQuestions) {
+            setCorrectlyAnsweredQuestions(new Set(videoStatus.correctlyAnsweredQuestions));
+          }
+
+          if (videoStatus.lastCorrectCheckpoint) {
+            setLastCorrectCheckpoint(videoStatus.lastCorrectCheckpoint);
+          }
+
+          // Calculate initial position based on video type and completion status
+          let initialPosition = 0;
+
+          if (videoData.videoType === "basic") {
+            initialPosition = videoStatus.currentDuration || 0;
+          } else if (videoStatus.isCompleted) {
+            initialPosition = videoStatus.currentDuration || 0;
+          } else if (videoData.videoType === "trackable" || videoData.videoType === "trackableRandom") {
+            initialPosition = 0;
+          } else if (videoData.videoType === "interactive") {
+            initialPosition = videoStatus.lastCorrectCheckpoint || 0;
+          }
+
+          setVideoInitialPosition(initialPosition);
           setPlayerState(prev => ({
             ...prev,
-            progress,
-            currentTime: progress.currentTime,
-            canSeek: getCanSeek(videoData.videoType, progress.completed)
+            currentTime: initialPosition,
+            canSeek: getCanSeek(videoData.videoType, videoStatus.isCompleted)
           }));
+
+          console.log(
+            `[BUSINESS LOGIC] Video loaded - Type: ${videoData.videoType}, Initial Position: ${initialPosition}s, Completed: ${videoStatus.isCompleted}`,
+          );
         } else {
+          console.log(`[VIDEO PLAYER] No existing submission found - will use POST for new submission`);
+          // No previous progress - start from beginning, will use POST for first submission
+          setAlreadySubmit(false);
+          setVideoInitialPosition(0);
           setPlayerState(prev => ({
             ...prev,
+            currentTime: 0,
             canSeek: getCanSeek(videoData.videoType, false)
           }));
+          console.log(`[BUSINESS LOGIC] New video - Type: ${videoData.videoType}, Starting from beginning`);
         }
+
+        setInitialVideoSetup(true);
       } catch (error) {
-        console.error('Failed to load video progress:', error);
+        console.error('[VIDEO PLAYER] Failed to load video progress:', error);
+        // Fallback to starting from beginning - will use POST for new submission
+        setAlreadySubmit(false);
+        setVideoInitialPosition(0);
+        setPlayerState(prev => ({
+          ...prev,
+          currentTime: 0,
+          canSeek: getCanSeek(videoData?.videoType || 'basic', false)
+        }));
+        setInitialVideoSetup(true);
       }
     };
+
     loadProgress();
-  }, [videoData]);
+  }, [videoData?._id, videoData?.videoType, initialVideoSetup, fetchVideoProgress]);
 
   // Save progress to storage
   const saveProgress = useCallback(async (progress: VideoProgress) => {
@@ -88,7 +149,7 @@ export const useVideoPlayer = ({
     } catch (error) {
       console.error('Failed to save video progress:', error);
     }
-  }, [videoData._id]);
+  }, [videoData?._id]);
 
 
 
@@ -120,7 +181,6 @@ export const useVideoPlayer = ({
 
     // Handle different video types based on answer correctness
     let seekToTime = currentTime;
-    let lastCorrectQuestionTime = newProgress.lastCorrectQuestionTime;
 
     if (!isCorrect) {
       switch (videoType) {
@@ -128,47 +188,45 @@ export const useVideoPlayer = ({
         case 'trackableRandom':
           // For trackable videos, restart from beginning on wrong answer
           seekToTime = 0;
-          lastCorrectQuestionTime = 0;
           break;
         case 'interactive':
           // For interactive videos, go back to last correct question or start
-          const lastCorrectQuestion = newProgress.answeredQuestions
-            .filter(aq => aq.correct)
-            .sort((a, b) => b.timestamp - a.timestamp)[0];
-          seekToTime = lastCorrectQuestion ? lastCorrectQuestion.timestamp : 0;
-          lastCorrectQuestionTime = seekToTime;
+          seekToTime = lastCorrectCheckpoint || 0;
           break;
         default:
           // Basic videos continue from current position
           break;
       }
     } else {
-      // Update last correct question time for correct answers
-      lastCorrectQuestionTime = currentTime;
+      // Update last correct checkpoint for correct answers
+      if (videoType === 'interactive') {
+        setLastCorrectCheckpoint(currentTime);
+      }
+      // Add to correctly answered questions
+      const newCorrectlyAnswered = new Set(correctlyAnsweredQuestions);
+      newCorrectlyAnswered.add(questionId);
+      setCorrectlyAnsweredQuestions(newCorrectlyAnswered);
     }
-    
-    // Update progress with last correct question time
-    newProgress.lastCorrectQuestionTime = lastCorrectQuestionTime;
 
-    // Submit question answer to API with comprehensive data
+    // Submit question answer to API and get submission entry
     try {
-      await submitVideoQuestion(videoData._id, questionId, answer, {
+      const questionResult = await submitVideoQuestion(videoData._id, questionId, answer, {
         isCorrect,
         timestamp: currentTime,
         timeToAnswer: Date.now() - (playerState.currentQuestion.meta.timeToShowQuestion || 0) * 1000,
         questionType: playerState.currentQuestion.questionType,
         videoType,
         questionTriggerTime: playerState.currentQuestion.meta.timeToShowQuestion,
-        userSeekBehavior: seekToTime !== currentTime ? 'seeked' : 'continued',
-        sessionId: `${videoData._id}_${Date.now()}`,
-        additionalMeta: {
-          seekToTime,
-          originalTime: currentTime,
-          videoTitle: videoData.videoTitle,
-          chapterId: videoData.chapterId,
-          courseId: videoData.courseId
-        }
+        explanation: (playerState.currentQuestion as any).explanation || ""
       });
+      
+      // Add submission entry to the submission array
+      if (questionResult && questionResult.data) {
+        setSubmission(prev => [
+          ...prev.filter(s => s.questionId !== questionId),
+          questionResult.data
+        ]);
+      }
     } catch (error) {
       console.error('Failed to submit question answer:', error);
     }
@@ -198,7 +256,7 @@ export const useVideoPlayer = ({
 
     // Call callback
     onQuestionAnswer?.(questionId, answer, isCorrect);
-  }, [playerState.currentQuestion, playerState.currentTime, playerState.progress, videoData.videoType, videoData._id, videoData.videoTitle, videoData.chapterId, videoData.courseId, saveProgress, onQuestionAnswer, submitVideoQuestion]);
+  }, [playerState.currentQuestion, playerState.currentTime, playerState.progress, videoData.videoType, videoData._id, correctlyAnsweredQuestions, lastCorrectCheckpoint, saveProgress, onQuestionAnswer, submitVideoQuestion]);
 
   // Handle video time update
   const handleTimeUpdate = useCallback(async (status: any) => {
@@ -236,6 +294,24 @@ export const useVideoPlayer = ({
 
     // Save progress periodically with enhanced tracking
     const isCompleted = currentTime >= duration * 0.95; // Consider 95% as completed
+    const videoCompleted = isCompleted;
+    
+    // Prepare submission data for API
+    const currentCheckpoint = videoData.videoType === "interactive" ? lastCorrectCheckpoint : undefined;
+    
+    const progressData = {
+      courseId: videoData.courseId,
+      chapterId: videoData.chapterId,
+      currentTime,
+      totalDuration: duration,
+      completed: videoCompleted,
+      videoType: videoData.videoType,
+      correctlyAnsweredQuestions,
+      lastCorrectCheckpoint: currentCheckpoint,
+      submission,
+      alreadySubmit
+    };
+    
     const newProgress = {
       ...playerState.progress,
       currentTime,
@@ -243,40 +319,48 @@ export const useVideoPlayer = ({
       completed: isCompleted
     };
 
-    if (isCompleted && !playerState.progress.completed) {
-      // Video completed - now user can seek for restricted video types
-      newProgress.completed = true;
-      const canSeekNow = getCanSeek(videoData.videoType, true);
+    // Submit progress using new API structure
+    try {
+      await updateVideoProgress(videoData._id, progressData);
       
-      setPlayerState(prev => ({
-        ...prev,
-        canSeek: canSeekNow,
-        progress: newProgress
-      }));
-      
-      // Update progress with completion data
-      await updateVideoProgress(videoData._id, {
-        ...newProgress,
-        videoType: videoData.videoType,
-        meta: {
-          completedAt: new Date().toISOString(),
-          totalWatchTime: duration,
-          questionsAnswered: newProgress.answeredQuestions.length,
-          correctAnswers: newProgress.answeredQuestions.filter(q => q.correct).length
-        }
-      });
-      
-      onVideoComplete?.();
-    } else {
-      // Regular progress update
-      await updateVideoProgress(videoData._id, {
-        ...newProgress,
-        videoType: videoData.videoType
-      });
+      if (isCompleted && !playerState.progress.completed) {
+        // Video completed - now user can seek for restricted video types
+        newProgress.completed = true;
+        const canSeekNow = getCanSeek(videoData.videoType, true);
+        
+        setPlayerState(prev => ({
+          ...prev,
+          canSeek: canSeekNow,
+          progress: newProgress
+        }));
+        
+        // Update local state to reflect completion
+        setAlreadySubmit(true);
+        setVideoStatusData((prev: any) => ({
+          ...prev,
+          currentDuration: currentTime,
+          isCompleted: "true",
+          lastCorrectCheckpoint: videoData.videoType === "interactive" ? lastCorrectCheckpoint : prev?.lastCorrectCheckpoint,
+          correctlyAnsweredQuestions: Array.from(correctlyAnsweredQuestions),
+        }));
+        
+        onVideoComplete?.();
+      } else {
+        // Regular progress update - update local state
+        setVideoStatusData((prev: any) => ({
+          ...prev,
+          currentDuration: currentTime,
+          isCompleted: videoCompleted ? "true" : "false",
+          lastCorrectCheckpoint: videoData.videoType === "interactive" ? lastCorrectCheckpoint : prev?.lastCorrectCheckpoint,
+          correctlyAnsweredQuestions: Array.from(correctlyAnsweredQuestions),
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to update video progress:', error);
     }
 
     setPlayerState(prev => ({ ...prev, progress: newProgress }));
-  }, [playerState.showQuestion, playerState.progress, videoData.questions, videoData._id, videoData.videoType, saveProgress, onVideoComplete, updateVideoProgress]);
+  }, [playerState.showQuestion, playerState.progress, videoData.questions, videoData._id, videoData.videoType, videoData.chapterId, videoData.courseId, alreadySubmit, correctlyAnsweredQuestions, lastCorrectCheckpoint, submission, onVideoComplete, updateVideoProgress]);
 
   // Play/Pause controls
   const togglePlayPause = useCallback(async () => {
