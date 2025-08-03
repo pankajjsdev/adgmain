@@ -7,7 +7,7 @@ import useCourseStore from '@/store/courseStore';
 import { VideoData } from '@/types/video';
 import { htmlToPlainText } from '@/utils/htmlUtils';
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams, Stack, useNavigation } from 'expo-router';
+import { router, Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -1023,19 +1023,7 @@ export default function VideoDetailScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-back" size={24} color={colors.text.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {videoData.videoTitle}
-          </Text>
-          <View style={styles.headerRight} />
-        </View>
+      
 
         {/* Video Player */}
         <View style={styles.videoPlayerContainer}>
