@@ -38,6 +38,8 @@ export interface ClientConfig {
     baseUrl: string;
     version: string;
     timeout: number;
+    vendorCode: string;
+    countryCode: string;
     endpoints: {
       auth: string;
       courses: string;
@@ -54,6 +56,13 @@ export interface ClientConfig {
     socialLogin: boolean;
     darkMode: boolean;
     biometricAuth: boolean;
+  };
+  googleAuth: {
+    webClientId: string;
+    iosClientId: string;
+    androidClientId: string;
+    scopes: string[];
+    hostedDomain?: string;
   };
   contact: {
     email: string;
@@ -196,6 +205,8 @@ const getFallbackConfig = (): ClientConfig => ({
     baseUrl: 'https://api.adgclasses.com',
     version: 'v1',
     timeout: 30000,
+    vendorCode: 'default',
+    countryCode: 'IN',
     endpoints: {
       auth: '/auth',
       courses: '/courseManagement',
@@ -211,7 +222,14 @@ const getFallbackConfig = (): ClientConfig => ({
     pushNotifications: true,
     socialLogin: true,
     darkMode: true,
-    biometricAuth: true
+    biometricAuth: false
+  },
+  googleAuth: {
+    webClientId: 'YOUR_DEFAULT_WEB_CLIENT_ID.apps.googleusercontent.com',
+    iosClientId: 'YOUR_DEFAULT_IOS_CLIENT_ID.apps.googleusercontent.com',
+    androidClientId: 'YOUR_DEFAULT_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+    scopes: ['openid', 'profile', 'email'],
+    hostedDomain: undefined,
   },
   contact: {
     email: 'support@adgclasses.com',

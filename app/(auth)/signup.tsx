@@ -5,6 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useAuthStore from '@/store/authStore';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { GoogleAuthResult } from '@/utils/googleAuth';
 
 export default function SignupScreen() {
   const [email, setEmail] = useState('');
@@ -33,6 +35,16 @@ export default function SignupScreen() {
     }
     
     await signup({ email, password });
+  };
+
+  const handleGoogleSignupSuccess = (result: GoogleAuthResult) => {
+    console.log('Google signup successful:', result.user?.email);
+    // Navigation will be handled by the auth store
+  };
+
+  const handleGoogleSignupError = (error: string) => {
+    console.error('Google signup error:', error);
+    Alert.alert('Google Signup Failed', error);
   };
 
   // Redirect to main app if authenticated after signup
@@ -161,6 +173,14 @@ export default function SignupScreen() {
               {loading ? 'Creating Account...' : 'Sign Up'}
             </Text>
           </Pressable>
+
+          {/* Google Sign-In Button */}
+          <GoogleSignInButton
+            mode="signup"
+            onSuccess={handleGoogleSignupSuccess}
+            onError={handleGoogleSignupError}
+            style={{ marginTop: 16 }}
+          />
 
           {/* Login Link */}
           <View style={localStyles.loginContainer}>

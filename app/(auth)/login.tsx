@@ -14,6 +14,7 @@ import {
 import useAuthStore from '@/store/authStore';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import GoogleSignInButton from '@/components/GoogleSignInButton';
 
 export default function LoginScreen() {
   const { styles, colors, spacing } = useGlobalStyles();
@@ -46,6 +47,16 @@ export default function LoginScreen() {
       // Error is handled by the store
       console.error('Login error:', err);
     }
+  };
+
+  const handleGoogleLoginSuccess = (result: any) => {
+    console.log('Google login successful:', result.user?.email);
+    // Navigation will be handled by the auth store
+  };
+
+  const handleGoogleLoginError = (error: string) => {
+    console.error('Google login error:', error);
+    Alert.alert('Google Login Failed', error);
   };
 
   const handleSignUpPress = () => {
@@ -155,6 +166,14 @@ export default function LoginScreen() {
               <Text style={styles.buttonTextPrimary}>Sign In</Text>
             )}
           </Pressable>
+
+          {/* Google Sign-In Button */}
+          <GoogleSignInButton
+            mode="login"
+            onSuccess={handleGoogleLoginSuccess}
+            onError={handleGoogleLoginError}
+            style={{ marginTop: 16 }}
+          />
 
           {/* Sign Up Link */}
           <View style={getLocalStyles(colors, spacing).signupContainer}>

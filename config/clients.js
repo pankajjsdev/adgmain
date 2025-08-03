@@ -49,6 +49,8 @@ const clients = {
       baseUrl: 'https://api.adgclasses.com',
       version: 'v1',
       timeout: 30000,
+      vendorCode: 'adg',
+      countryCode: 'IN',
       endpoints: {
         auth: '/auth',
         courses: '/courseManagement',
@@ -75,7 +77,16 @@ const clients = {
       googlePlayId: 'com.adg.classes' // Same as androidPackage
     },
     
-    // Feature flags
+    // Google OAuth Configuration
+    googleAuth: {
+      webClientId: 'YOUR_ADG_WEB_CLIENT_ID.apps.googleusercontent.com',
+      iosClientId: 'YOUR_ADG_IOS_CLIENT_ID.apps.googleusercontent.com',
+      androidClientId: 'YOUR_ADG_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+      scopes: ['openid', 'profile', 'email'],
+      hostedDomain: null, // Optional: restrict to specific domain
+    },
+    
+    // Features
     features: {
       analytics: true,
       pushNotifications: true,
@@ -83,14 +94,23 @@ const clients = {
       darkMode: true,
       biometricAuth: true
     },
+
+    // Google OAuth Configuration
+    googleAuth: {
+      webClientId: 'YOUR_TECHEDU_WEB_CLIENT_ID.apps.googleusercontent.com',
+      iosClientId: 'YOUR_TECHEDU_IOS_CLIENT_ID.apps.googleusercontent.com',
+      androidClientId: 'YOUR_TECHEDU_ANDROID_CLIENT_ID.apps.googleusercontent.com',
+      scopes: ['openid', 'profile', 'email'],
+      hostedDomain: null, // Optional: restrict to specific domain
+    },
     
     // Contact & Support
     contact: {
-      email: 'support@adgclasses.com',
-      phone: '+1-800-ADG-HELP',
-      website: 'https://adgclasses.com',
-      privacyPolicy: 'https://adgclasses.com/privacy',
-      termsOfService: 'https://adgclasses.com/terms'
+      email: 'support@techedu.pro',
+      phone: '+1-800-TECHEDU',
+      website: 'https://techedu.pro',
+      privacyPolicy: 'https://techedu.pro/privacy',
+      termsOfService: 'https://techedu.pro/terms'
     }
   },
 
@@ -135,6 +155,8 @@ const clients = {
       baseUrl: 'https://api.techedu.pro',
       version: 'v1',
       timeout: 30000,
+      vendorCode: 'techedu',
+      countryCode: 'IN',
       endpoints: {
         auth: '/auth',
         courses: '/courseManagement',
@@ -217,6 +239,8 @@ const clients = {
       baseUrl: 'https://api.skillboost.academy',
       version: 'v1',
       timeout: 30000,
+      vendorCode: 'skillboost',
+      countryCode: 'IN',
       endpoints: {
         auth: '/auth',
         courses: '/courseManagement',
@@ -299,6 +323,8 @@ const clients = {
       baseUrl: 'https://api.edutech-solutions.com',
       version: 'v1',
       timeout: 30000,
+      vendorCode: 'edutech',
+      countryCode: 'IN',
       endpoints: {
         auth: '/auth',
         courses: '/courseManagement',

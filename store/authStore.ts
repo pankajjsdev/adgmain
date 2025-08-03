@@ -1,4 +1,7 @@
-import { apiGet, apiPost } from '@/api'; // Assuming you have apiGet and apiPost
+import { apiGet, apiPost } from '@/api';
+import { router } from 'expo-router';
+import { getClientConfig } from '@/utils/clientConfig';
+import { GoogleUser } from '@/utils/googleAuth';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
@@ -14,6 +17,8 @@ interface AuthState {
   error: string | null;
   login: (credentials: any) => Promise<void>; // Replace 'any' with your credentials type
   signup: (userData: any) => Promise<void>; // Replace 'any' with your user data type
+  loginWithGoogle: (googleUser: GoogleUser, idToken: string) => Promise<void>;
+  signupWithGoogle: (googleUser: GoogleUser, idToken: string) => Promise<void>; // Google signup method
   logout: () => Promise<void>; // Make logout async to clear storage
   initializeAuth: () => Promise<void>; // Action to initialize auth state
   setToken: (token: string | null) => void; // Action to set token
@@ -130,6 +135,90 @@ const useAuthStore = create<AuthState>((set, get) => ({
     await SecureStore.deleteItemAsync(TOKEN_STORAGE_KEY);
     await SecureStore.deleteItemAsync(USER_STORAGE_KEY); // Clear user data from storage
     // Optionally call logout API endpoint here
+  },
+
+  // Google Login method
+  loginWithGoogle: async (googleUser: GoogleUser, idToken: string) => {
+    set({ loading: true, error: null });
+    try {
+      const clientConfig = getClientConfig();
+      
+      // Send Google token to your backend for authentication
+      const response = await apiPost('/auth/user/google/login', {
+        token: idToken,
+        vendorCode: clientConfig.api.vendorCode || 'default',
+        country: clientConfig.api.countryCode || 'IN',
+      });
+
+      if (response.success && response.data) {
+        const { user, token, refreshToken } = response.data;
+        
+        // Store tokens securely
+        await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, JSON.stringify({ accessToken: token, refreshToken }));
+        await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(user));
+        
+        set({
+          user,
+          token,
+          refreshToken,
+          isAuthenticated: true,
+          loading: false,
+          error: null,
+        });
+      } else {
+        set({
+          loading: false,
+          error: response.message || 'Google login failed',
+        });
+      }
+    } catch (error: any) {
+      set({
+        loading: false,
+        error: error.message || 'Google login failed',
+      });
+    }
+  },
+
+  // Google Signup method
+  signupWithGoogle: async (googleUser: GoogleUser, idToken: string) => {
+    set({ loading: true, error: null });
+    try {
+      const clientConfig = getClientConfig();
+      
+      // Send Google token to your backend for registration
+      const response = await apiPost('/auth/user/google/login', {
+        token: idToken,
+        vendorCode: clientConfig.api.vendorCode || 'default',
+        country: clientConfig.api.countryCode || 'IN',
+      });
+
+      if (response.success && response.data) {
+        const { user, token, refreshToken } = response.data;
+        
+        // Store tokens securely
+        await SecureStore.setItemAsync(TOKEN_STORAGE_KEY, JSON.stringify({ accessToken: token, refreshToken }));
+        await SecureStore.setItemAsync(USER_STORAGE_KEY, JSON.stringify(user));
+        
+        set({
+          user,
+          token,
+          refreshToken,
+          isAuthenticated: true,
+          loading: false,
+          error: null,
+        });
+      } else {
+        set({
+          loading: false,
+          error: response.message || 'Google signup failed',
+        });
+      }
+    } catch (error: any) {
+      set({
+        loading: false,
+        error: error.message || 'Google signup failed',
+      });
+    }
   },
 
   // Action to initialize authentication state from storage
