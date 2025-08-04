@@ -14,13 +14,13 @@ import {
   Alert,
   Animated,
   Dimensions,
+  ImageBackground,
   RefreshControl,
   ScrollView,
+  StatusBar,
   Text,
   TouchableOpacity,
-  View,
-  ImageBackground,
-  StatusBar
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -182,6 +182,42 @@ export default function VideoDetailScreen() {
     ]).start();
   }, [fadeAnim, slideAnim]);
 
+  // Tab switching animation
+  const animateTabSwitch = useCallback(() => {
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 0.3,
+        duration: 150,
+        useNativeDriver: true
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 20,
+        duration: 150,
+        useNativeDriver: true
+      }),
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true
+        })
+      ])
+    ]).start();
+  }, [fadeAnim, slideAnim]);
+
+  // Enhanced tab change handler
+  const handleTabChange = useCallback((tabId: string) => {
+    if (tabId !== activeTab) {
+      animateTabSwitch();
+      setActiveTab(tabId);
+    }
+  }, [activeTab, animateTabSwitch]);
+
   // Initialize animations when video data loads
   useEffect(() => {
     if (videoData) {
@@ -308,10 +344,34 @@ export default function VideoDetailScreen() {
   }
 
   const tabs = [
-    { id: 'description', title: 'Description', icon: 'information-circle-outline' },
-    { id: 'questions', title: 'Questions', icon: 'help-circle-outline' },
-    { id: 'resources', title: 'Resources', icon: 'link-outline' },
-    { id: 'progress', title: 'Progress', icon: 'analytics-outline' },
+    { 
+      id: 'description', 
+      title: 'Description', 
+      icon: 'information-circle-outline',
+      badge: null,
+      color: colors.brand.primary
+    },
+    { 
+      id: 'questions', 
+      title: 'Questions', 
+      icon: 'help-circle-outline',
+      badge: videoData?.questions?.length || 0,
+      color: colors.status.warning
+    },
+    { 
+      id: 'resources', 
+      title: 'Resources', 
+      icon: 'link-outline',
+      badge: videoData?.videoResources?.length || 0,
+      color: colors.status.info
+    },
+    { 
+      id: 'progress', 
+      title: 'Progress', 
+      icon: 'analytics-outline',
+      badge: isVideoCompleted ? '✓' : null,
+      color: colors.status.success
+    },
   ];
 
   // Enhanced video type info with better styling and badges
@@ -1027,72 +1087,76 @@ export default function VideoDetailScreen() {
   // Removed unused renderVideoInformation function
 
   if (showVideoPlayer) {
-    // Show full video player when play button is pressed
+    // Show fullscreen video player when play button is pressed
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
         <Stack.Screen 
           options={{ 
-            title: truncateTitle(videoData?.videoTitle || 'Video', 20),
-            headerStyle: { backgroundColor: colors.background.primary },
-            headerTintColor: colors.text.primary
+            headerShown: false // Hide header for fullscreen experience
           }} 
         />
-        <ScrollView 
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={handleRefresh}
-              tintColor={colors.brand.primary}
-              colors={[colors.brand.primary]}
-            />
-          }
-          showsVerticalScrollIndicator={false}
-          style={{ backgroundColor: colors.background.primary }}
-        >
-          {/* Enhanced Video Player Section */}
-          <View style={[styles.videoPlayerContainer, { backgroundColor: colors.background.secondary }]}>
-            {loading || !videoData?.videoUrl ? (
-              <View style={[styles.videoPlaceholder, { backgroundColor: '#000' }]}>
-                <ActivityIndicator size="large" color={colors.brand.primary} />
-                <Text style={[styles.loadingVideoText, { color: colors.text.inverse }]}>Loading video...</Text>
-              </View>
-            ) : (
-              <VideoPlayer
-                videoUrl={videoData.videoUrl}
-                posterUrl={videoData.videoThumbnail}
-                isPlaying={shouldAutoPlay || playerState?.isPlaying || false} // Auto-play when coming from poster
-                currentTime={playerState?.currentTime || 0}
-                duration={playerState?.duration || videoData.duration || 0}
-                canSeek={canSeek}
-                videoType={videoData.videoType}
-                isCompleted={isVideoCompleted}
-                onPlayPause={togglePlayPause}
-                onTimeUpdate={(status) => {
-                  if (handleTimeUpdate) {
-                    handleTimeUpdate(status);
-                  }
-                }}
-                onLoad={(status) => {
-                  console.log('🎥 Video loaded in player:', status);
-                  if (status.durationMillis && !playerState?.duration) {
-                    // Duration handling logic
-                  }
-                  // Reset auto-play flag after video loads
-                  if (shouldAutoPlay) {
-                    setTimeout(() => setShouldAutoPlay(false), 1000);
-                  }
-                }}
-                onFullscreenChange={(isFullscreen) => {
-                  setIsVideoFullscreen(isFullscreen);
-                }}
-                style={styles.video}
-              />
-            )}
-          </View>
 
-          {/* Video Information and Tabs */}
-          {renderTabContent()}
-        </ScrollView>
+        {/* Fullscreen Video Player */}
+        <View style={{ flex: 1 }}>
+          {loading || !videoData?.videoUrl ? (
+            <View style={[styles.videoPlaceholder, { backgroundColor: '#000', flex: 1, justifyContent: 'center', alignItems: 'center' }]}>
+              <ActivityIndicator size="large" color={colors.brand.primary} />
+              <Text style={[styles.loadingVideoText, { color: colors.text.inverse, marginTop: 16 }]}>Loading video...</Text>
+            </View>
+          ) : (
+            <VideoPlayer
+              videoUrl={videoData.videoUrl}
+              posterUrl={videoData.videoThumbnail}
+              isPlaying={(() => {
+                const finalIsPlaying = shouldAutoPlay || playerState?.isPlaying || false;
+                console.log('🎬 VideoPlayer isPlaying prop:', {
+                  shouldAutoPlay,
+                  playerStateIsPlaying: playerState?.isPlaying,
+                  finalIsPlaying
+                });
+                return finalIsPlaying;
+              })()}
+              currentTime={playerState?.currentTime || 0}
+              duration={playerState?.duration || videoData.duration || 0}
+              canSeek={canSeek}
+              videoType={videoData.videoType}
+              isCompleted={isVideoCompleted}
+              onPlayPause={togglePlayPause}
+              onTimeUpdate={(status) => {
+                if (handleTimeUpdate) {
+                  handleTimeUpdate(status);
+                }
+              }}
+              onLoad={(status) => {
+                console.log('🎥 Video loaded in player:', status);
+                if (status.durationMillis && !playerState?.duration) {
+                  // Duration handling logic
+                }
+                // Reset auto-play flag after video loads
+                if (shouldAutoPlay) {
+                  setTimeout(() => setShouldAutoPlay(false), 1000);
+                }
+              }}
+              onFullscreenChange={(isFullscreen) => {
+                setIsVideoFullscreen(isFullscreen);
+              }}
+              onClose={() => {
+                console.log('🔙 Closing fullscreen video player');
+                setShowVideoPlayer(false);
+                setShouldAutoPlay(false);
+              }}
+              // Question-related props
+              currentQuestion={playerState?.currentQuestion}
+              showQuestion={playerState?.showQuestion}
+              onQuestionAnswer={handleQuestionAnswer}
+              onQuestionClose={closeQuestion}
+              // Video title and author
+              videoTitle={videoData?.videoTitle || 'Video Title'}
+              videoAuthor={`by ${videoData?.videoTitle ? 'Instructor' : 'Unknown Author'}`}
+              style={{ flex: 1 }}
+            />
+          )}
+        </View>
 
         {/* Video Question Modal */}
         <VideoQuestionModal
@@ -1100,9 +1164,9 @@ export default function VideoDetailScreen() {
           question={playerState?.currentQuestion}
           onAnswer={handleModalAnswer}
           onClose={playerState?.currentQuestion?.closeable ? closeQuestion : undefined}
-          isFullscreen={isVideoFullscreen}
+          isFullscreen={true} // Always fullscreen when video player is showing
         />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -1239,11 +1303,21 @@ export default function VideoDetailScreen() {
               }}
               onPress={() => {
                 console.log('🎬 Poster play button pressed');
+                console.log('📊 Current player state:', {
+                  isPlaying: playerState?.isPlaying,
+                  shouldAutoPlay,
+                  showVideoPlayer
+                });
                 setShouldAutoPlay(true); // Set auto-play flag
                 setShowVideoPlayer(true);
                 // Also trigger the hook's play function as backup
                 setTimeout(() => {
                   console.log('🎬 Triggering backup auto-play after poster click');
+                  console.log('📊 Player state before backup toggle:', {
+                    isPlaying: playerState?.isPlaying,
+                    shouldAutoPlay,
+                    hasToggleFunction: !!togglePlayPause
+                  });
                   if (togglePlayPause && !playerState?.isPlaying) {
                     togglePlayPause();
                   }
@@ -1380,62 +1454,159 @@ export default function VideoDetailScreen() {
             </View>
           </View>
           
-          {/* Tabs Section */}
+          {/* Modern Tabs Section */}
           <View style={{
-            marginTop: 20,
+            marginTop: 24,
             marginBottom: 20,
           }}>
+            {/* Tab Headers with Modern Design */}
             <View style={{
-              flexDirection: 'row' as const,
-              backgroundColor: colors.surface.secondary,
-              borderRadius: 12,
-              padding: 4,
-              marginBottom: 20,
+              backgroundColor: colors.surface.card,
+              borderRadius: 20,
+              padding: 8,
+              marginBottom: 28,
+              shadowColor: colors.brand.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 12,
+              elevation: 8,
+              borderWidth: 1,
+              borderColor: colors.surface.overlay + '30',
             }}>
-              {tabs.map((tab) => (
-                <TouchableOpacity
-                  key={tab.id}
-                  style={[
-                    {
-                      flex: 1,
-                      flexDirection: 'row' as const,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      borderRadius: 8,
-                      gap: 8,
-                    },
-                    activeTab === tab.id && {
-                      backgroundColor: colors.brand.primary,
-                    }
-                  ]}
-                  onPress={() => setActiveTab(tab.id)}
-                >
-                  <Ionicons 
-                    name={tab.icon as any} 
-                    size={18} 
-                    color={activeTab === tab.id ? 'white' : colors.text.secondary} 
-                  />
-                  <Text style={[
-                    {
-                      fontSize: 14,
-                      fontWeight: '500' as const,
-                      color: colors.text.secondary,
-                    },
-                    activeTab === tab.id && { 
-                      color: 'white', 
-                      fontWeight: '600' as const 
-                    }
-                  ]}>
-                    {tab.title}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <View style={{
+                flexDirection: 'row' as const,
+                position: 'relative' as const,
+              }}>
+                {tabs.map((tab, index) => {
+                  const isActive = activeTab === tab.id;
+                  return (
+                    <TouchableOpacity
+                      key={tab.id}
+                      style={[
+                        {
+                          flex: 1,
+                          flexDirection: 'column' as const,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          paddingVertical: 16,
+                          paddingHorizontal: 12,
+                          borderRadius: 12,
+                          position: 'relative' as const,
+                          minHeight: 70,
+                        },
+                        isActive && {
+                          backgroundColor: colors.brand.primary,
+                          shadowColor: colors.brand.primary,
+                          shadowOffset: { width: 0, height: 6 },
+                          shadowOpacity: 0.4,
+                          shadowRadius: 12,
+                          elevation: 8,
+                          transform: [{ scale: 1.02 }],
+                          borderWidth: 2,
+                          borderColor: 'rgba(255,255,255,0.2)',
+                        }
+                      ]}
+                      onPress={() => {
+                        handleTabChange(tab.id);
+                        // Add haptic feedback
+                        // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      {/* Tab Icon with Badge */}
+                      <View style={{ position: 'relative' as const, marginBottom: 6 }}>
+                        <Ionicons 
+                          name={tab.icon as any} 
+                          size={22} 
+                          color={isActive ? 'white' : tab.color} 
+                        />
+                        {/* Badge for Questions/Resources count */}
+                        {tab.badge !== null && tab.badge !== 0 && (
+                          <View style={{
+                            position: 'absolute' as const,
+                            top: -6,
+                            right: -8,
+                            backgroundColor: isActive ? 'rgba(255,255,255,0.9)' : colors.status.error,
+                            borderRadius: 10,
+                            minWidth: 18,
+                            height: 18,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            paddingHorizontal: 4,
+                          }}>
+                            <Text style={{
+                              fontSize: 10,
+                              fontWeight: '700' as const,
+                              color: isActive ? colors.brand.primary : 'white',
+                            }}>
+                              {typeof tab.badge === 'number' && tab.badge > 99 ? '99+' : tab.badge}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      
+                      {/* Tab Title */}
+                      <Text style={[
+                        {
+                          fontSize: 12,
+                          fontWeight: '600' as const,
+                          color: colors.text.secondary,
+                          textAlign: 'center' as const,
+                          lineHeight: 16,
+                        },
+                        isActive && { 
+                          color: 'white', 
+                          fontWeight: '700' as const 
+                        }
+                      ]}>
+                        {tab.title}
+                      </Text>
+                      
+                      {/* Active Indicator */}
+                      {isActive && (
+                        <View style={{
+                          position: 'absolute' as const,
+                          bottom: -8,
+                          left: '50%',
+                          marginLeft: -6,
+                          width: 12,
+                          height: 4,
+                          backgroundColor: 'white',
+                          borderRadius: 2,
+                          shadowColor: '#000',
+                          shadowOffset: { width: 0, height: 2 },
+                          shadowOpacity: 0.3,
+                          shadowRadius: 6,
+                          elevation: 4,
+                        }} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
             
-            {/* Tab Content */}
-            {renderTabContent()}
+            {/* Tab Content with Animation */}
+            <Animated.View 
+              style={[
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                  backgroundColor: colors.surface.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.08,
+                  shadowRadius: 8,
+                  elevation: 3,
+                  borderWidth: 1,
+                  borderColor: colors.surface.overlay + '20',
+                }
+              ]}
+            >
+              {renderTabContent()}
+            </Animated.View>
           </View>
         </View>
       </ScrollView>

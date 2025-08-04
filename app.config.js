@@ -127,6 +127,7 @@ export default ({ config }) => ({
   // Plugins Configuration
   plugins: [
     'expo-router',
+    'expo-video',
     [
       'expo-splash-screen',
       {

@@ -2,6 +2,7 @@ import useCourseStore from '@/store/courseStore';
 import { VideoData, VideoPlayerState, VideoProgress } from '@/types/video';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VideoPlayer } from 'expo-video';
 
 interface UseVideoPlayerProps {
   videoData: VideoData;
@@ -39,8 +40,11 @@ export const useVideoPlayer = ({
   const [videoInitialPosition, setVideoInitialPosition] = useState(0);
   const [initialVideoSetup, setInitialVideoSetup] = useState(false);
   const [submission, setSubmission] = useState<any[]>([]);
+  
+  // Use videoStatusData and log for debugging
+  console.log('📊 Video status data:', videoStatusData);
 
-  const videoRef = useRef<any>(null);
+  const videoRef = useRef<VideoPlayer | null>(null);
   const questionTimeoutsRef = useRef<number[]>([]);
 
   // Get course store methods
@@ -246,12 +250,12 @@ export const useVideoPlayer = ({
 
     // Seek video to appropriate time
     if (videoRef.current && seekToTime !== currentTime) {
-      await videoRef.current.setPositionAsync?.(seekToTime * 1000);
+      videoRef.current.currentTime = seekToTime;
     }
 
     // Resume playback
     if (videoRef.current) {
-      await videoRef.current.playAsync?.();
+      videoRef.current.play();
     }
 
     // Call callback
@@ -287,7 +291,7 @@ export const useVideoPlayer = ({
           currentQuestion: questionToShow
         }));
         if (videoRef.current) {
-          await videoRef.current.pauseAsync?.();
+          videoRef.current.pause();
         }
       }
     }
@@ -364,30 +368,33 @@ export const useVideoPlayer = ({
 
   // Play/Pause controls
   const togglePlayPause = useCallback(async () => {
-    if (!videoRef.current) return;
-
+    console.log('🎮 Hook togglePlayPause called, current state:', playerState.isPlaying);
+    
     try {
       if (playerState.isPlaying) {
-        await videoRef.current.pauseAsync?.();
+        console.log('⏸️ Hook: Setting state to pause');
         setPlayerState(prev => ({ ...prev, isPlaying: false }));
       } else {
-        await videoRef.current.playAsync?.();
+        console.log('▶️ Hook: Setting state to play');
         setPlayerState(prev => ({ ...prev, isPlaying: true }));
       }
     } catch (error) {
-      console.error('Error toggling play/pause:', error);
+      console.error('Error toggling play/pause in hook:', error);
     }
   }, [playerState.isPlaying]);
 
   // Seek to specific time (only if allowed)
   const seekTo = useCallback(async (time: number) => {
-    if (!videoRef.current || !playerState.canSeek) return;
+    if (!playerState.canSeek) {
+      console.log('🚫 Seeking not allowed for this video type');
+      return;
+    }
 
     try {
-      await videoRef.current.setPositionAsync?.(time * 1000);
+      console.log('⏩ Hook: Setting seek time to:', time);
       setPlayerState(prev => ({ ...prev, currentTime: time }));
     } catch (error) {
-      console.error('Error seeking:', error);
+      console.error('Error seeking in hook:', error);
     }
   }, [playerState.canSeek]);
 
@@ -403,14 +410,15 @@ export const useVideoPlayer = ({
     }));
 
     if (videoRef.current) {
-      videoRef.current.playAsync?.();
+      videoRef.current.play();
     }
   }, [playerState.currentQuestion]);
 
   // Cleanup
   useEffect(() => {
     return () => {
-      questionTimeoutsRef.current.forEach(timeout => window.clearTimeout(timeout));
+      const timeouts = questionTimeoutsRef.current;
+      timeouts.forEach(timeout => window.clearTimeout(timeout));
     };
   }, []);
 
