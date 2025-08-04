@@ -1,18 +1,18 @@
-import React, { useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import { Stack, useLocalSearchParams, router, useNavigation } from 'expo-router';
-import useCourseStore from '@/store/courseStore';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import type { Chapter } from '@/store/courseStore';
+import useCourseStore from '@/store/courseStore';
+import { router, Stack, useLocalSearchParams, useNavigation } from 'expo-router';
+import React, { useCallback, useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 interface ChapterCardProps {
   item: Chapter;
@@ -93,7 +93,6 @@ export default function ChapterListScreen() {
     fetchChapters,
     refreshChapters,
     loadMoreChapters,
-    fetchCourse,
     clearError,
   } = useCourseStore();
 
@@ -102,7 +101,7 @@ export default function ChapterListScreen() {
     
     try {
       // Fetch course details first to get the course name for header
-      await fetchCourse(courseId);
+    
       await fetchChapters(courseId);
     } catch {
       Alert.alert(
@@ -113,7 +112,7 @@ export default function ChapterListScreen() {
         ]
       );
     }
-  }, [courseId, fetchCourse, fetchChapters, clearError]);
+  }, [courseId, fetchChapters, clearError]);
 
   useEffect(() => {
     loadChapters();

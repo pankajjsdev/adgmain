@@ -1,18 +1,18 @@
-import React, { useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import useCourseStore, { Chapter } from '@/store/courseStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 
 
@@ -29,7 +29,6 @@ export default function CourseDetails() {
     chaptersLoading,
     coursesError,
     chaptersError,
-    fetchCourse,
     fetchChapters,
     clearError,
   } = useCourseStore();
@@ -39,7 +38,6 @@ export default function CourseDetails() {
     
     try {
       await Promise.all([
-        fetchCourse(courseId as string),
         fetchChapters(courseId as string)
       ]);
     } catch {
@@ -54,7 +52,7 @@ export default function CourseDetails() {
         ]
       );
     }
-  }, [courseId, fetchCourse, fetchChapters, clearError]);
+  }, [courseId, fetchChapters, clearError]);
 
   useEffect(() => {
     loadCourseData();
@@ -63,7 +61,7 @@ export default function CourseDetails() {
   const isLoading = coursesLoading || chaptersLoading;
   const hasError = coursesError || chaptersError;
 
-  if (isLoading && !currentCourse) {
+  if (isLoading) {
     return (
       <View style={styles.container}>
         <Stack.Screen options={{ title: 'Course Details' }} />

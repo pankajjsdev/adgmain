@@ -1441,7 +1441,7 @@ export default function VideoDetailScreen() {
                   fontWeight: '600' as const,
                   marginTop: 4 
                 }}>
-                  {chapterId}
+                  FE chapter-1
                 </Text>
                 <Text style={{ 
                   color: colors.text.secondary, 

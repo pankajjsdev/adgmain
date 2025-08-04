@@ -1,18 +1,18 @@
-import React, { useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
-import { useRouter, useLocalSearchParams, Stack, useNavigation } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import useCourseStore, { Video } from '@/store/courseStore';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import React, { useCallback, useEffect } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function VideoList() {
   const router = useRouter();
@@ -33,7 +33,6 @@ export default function VideoList() {
     fetchVideos,
     refreshVideos,
     loadMoreVideos,
-    fetchChapter,
     updateVideoProgress,
     clearError,
   } = useCourseStore();
@@ -42,8 +41,7 @@ export default function VideoList() {
     if (!chapterId) return;
     
     try {
-      // Fetch chapter details first to get the chapter name for header
-      await fetchChapter(chapterId as string);
+
       await fetchVideos(chapterId as string);
     } catch {
       Alert.alert(
@@ -54,7 +52,7 @@ export default function VideoList() {
         ]
       );
     }
-  }, [chapterId, fetchChapter, fetchVideos, clearError]);
+  }, [chapterId, fetchVideos, clearError]);
 
   useEffect(() => {
     loadVideos();
@@ -73,13 +71,6 @@ export default function VideoList() {
 
   const handleVideoPress = async (video: Video) => {
     // Update video progress when user starts watching
-    if (!video.isWatched) {
-      try {
-        await updateVideoProgress(video.id, 1); // Mark as started
-      } catch (error) {
-        console.log('Failed to update video progress:', error);
-      }
-    }
     router.push(`/courses/${courseId}/chapters/${chapterId}/videos/${video.id}`);
   };
 
