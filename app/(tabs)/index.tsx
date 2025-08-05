@@ -239,24 +239,187 @@ export default function HomeScreen() {
             <UpcomingTasks />
           </View>
 
-          {/* Study Streak Card */}
-          <View style={localStyles.streakSection}>
+          {/* Progress Overview Section */}
+          <View style={localStyles.progressSection}>
+            <View style={localStyles.sectionHeader}>
+              <Text style={localStyles.sectionTitle}>Your Progress</Text>
+              <TouchableOpacity 
+                onPress={() => trackClick('view_all_progress')}
+                style={localStyles.moreButton}
+              >
+                <Text style={localStyles.moreText}>Details</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.brand.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={localStyles.progressGrid}>
+              {/* Study Streak Card */}
+              <View style={localStyles.progressCard}>
+                <LinearGradient
+                  colors={[colors.status.success + '20', colors.status.success + '10']}
+                  style={localStyles.cardGradient}
+                >
+                  <View style={localStyles.cardIcon}>
+                    <Ionicons name="flame" size={24} color={colors.status.success} />
+                  </View>
+                  <Text style={localStyles.cardNumber}>7</Text>
+                  <Text style={localStyles.cardLabel}>Day Streak</Text>
+                  <Text style={localStyles.cardSubtext}>🔥 On fire!</Text>
+                </LinearGradient>
+              </View>
+              
+              {/* Completed Lessons */}
+              <View style={localStyles.progressCard}>
+                <LinearGradient
+                  colors={[colors.brand.primary + '20', colors.brand.primary + '10']}
+                  style={localStyles.cardGradient}
+                >
+                  <View style={localStyles.cardIcon}>
+                    <Ionicons name="checkmark-circle" size={24} color={colors.brand.primary} />
+                  </View>
+                  <Text style={localStyles.cardNumber}>24</Text>
+                  <Text style={localStyles.cardLabel}>Completed</Text>
+                  <Text style={localStyles.cardSubtext}>This week</Text>
+                </LinearGradient>
+              </View>
+              
+              {/* Study Time */}
+              <View style={localStyles.progressCard}>
+                <LinearGradient
+                  colors={[colors.status.info + '20', colors.status.info + '10']}
+                  style={localStyles.cardGradient}
+                >
+                  <View style={localStyles.cardIcon}>
+                    <Ionicons name="time" size={24} color={colors.status.info} />
+                  </View>
+                  <Text style={localStyles.cardNumber}>12h</Text>
+                  <Text style={localStyles.cardLabel}>Study Time</Text>
+                  <Text style={localStyles.cardSubtext}>This week</Text>
+                </LinearGradient>
+              </View>
+              
+              {/* Achievement Points */}
+              <View style={localStyles.progressCard}>
+                <LinearGradient
+                  colors={[colors.status.warning + '20', colors.status.warning + '10']}
+                  style={localStyles.cardGradient}
+                >
+                  <View style={localStyles.cardIcon}>
+                    <Ionicons name="trophy" size={24} color={colors.status.warning} />
+                  </View>
+                  <Text style={localStyles.cardNumber}>1,250</Text>
+                  <Text style={localStyles.cardLabel}>XP Points</Text>
+                  <Text style={localStyles.cardSubtext}>Level 12</Text>
+                </LinearGradient>
+              </View>
+            </View>
+          </View>
+
+          {/* Recent Activity Section */}
+          <View style={localStyles.activitySection}>
+            <View style={localStyles.sectionHeader}>
+              <Text style={localStyles.sectionTitle}>Recent Activity</Text>
+              <TouchableOpacity 
+                onPress={() => trackClick('view_all_activity')}
+                style={localStyles.moreButton}
+              >
+                <Text style={localStyles.moreText}>View All</Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.brand.primary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={localStyles.activityList}>
+              {[
+                {
+                  icon: 'play-circle',
+                  color: colors.brand.primary,
+                  title: 'Completed React Native Basics',
+                  subtitle: '2 hours ago',
+                  progress: 100
+                },
+                {
+                  icon: 'book',
+                  color: colors.status.info,
+                  title: 'Started JavaScript Advanced',
+                  subtitle: '5 hours ago',
+                  progress: 15
+                },
+                {
+                  icon: 'trophy',
+                  color: colors.status.warning,
+                  title: 'Earned "Quick Learner" Badge',
+                  subtitle: '1 day ago',
+                  progress: null
+                }
+              ].map((activity, index) => (
+                <TouchableOpacity 
+                  key={index}
+                  style={localStyles.activityItem}
+                  onPress={() => trackClick('activity_item', { title: activity.title })}
+                  activeOpacity={0.7}
+                >
+                  <View style={[localStyles.activityIcon, { backgroundColor: activity.color + '15' }]}>
+                    <Ionicons name={activity.icon as any} size={20} color={activity.color} />
+                  </View>
+                  <View style={localStyles.activityContent}>
+                    <Text style={localStyles.activityTitle}>{activity.title}</Text>
+                    <Text style={localStyles.activitySubtitle}>{activity.subtitle}</Text>
+                    {activity.progress !== null && (
+                      <View style={localStyles.progressBar}>
+                        <View 
+                          style={[
+                            localStyles.progressFill, 
+                            { 
+                              width: `${activity.progress}%`,
+                              backgroundColor: activity.color
+                            }
+                          ]} 
+                        />
+                      </View>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Daily Goal Section */}
+          <View style={localStyles.goalSection}>
             <LinearGradient
-              colors={[colors.status.success + '20', colors.status.success + '10']}
-              style={localStyles.streakCard}
+              colors={[colors.brand.secondary + '20', colors.brand.primary + '10']}
+              style={localStyles.goalCard}
             >
-              <View style={localStyles.streakContent}>
-                <View style={localStyles.streakIcon}>
-                  <Ionicons name="flame" size={28} color={colors.status.success} />
+              <View style={localStyles.goalHeader}>
+                <View style={localStyles.goalIcon}>
+                  <Ionicons name="radio-button-on" size={24} color={colors.brand.primary} />
                 </View>
-                <View style={localStyles.streakInfo}>
-                  <Text style={localStyles.streakTitle}>Study Streak</Text>
-                  <Text style={localStyles.streakSubtitle}>Keep it up! You&apos;re on fire 🔥</Text>
+                <View style={localStyles.goalInfo}>
+                  <Text style={localStyles.goalTitle}>Daily Goal</Text>
+                  <Text style={localStyles.goalSubtitle}>2 hours of study time</Text>
                 </View>
-                <View style={localStyles.streakCount}>
-                  <Text style={localStyles.streakNumber}>7</Text>
-                  <Text style={localStyles.streakLabel}>Days</Text>
+                <Text style={localStyles.goalProgress}>75%</Text>
+              </View>
+              
+              <View style={localStyles.goalProgressBar}>
+                <View style={[localStyles.goalProgressFill, { width: '75%' }]} />
+              </View>
+              
+              <View style={localStyles.goalStats}>
+                <View style={localStyles.goalStat}>
+                  <Text style={localStyles.goalStatNumber}>1.5h</Text>
+                  <Text style={localStyles.goalStatLabel}>Completed</Text>
                 </View>
+                <View style={localStyles.goalStat}>
+                  <Text style={localStyles.goalStatNumber}>30m</Text>
+                  <Text style={localStyles.goalStatLabel}>Remaining</Text>
+                </View>
+                <TouchableOpacity 
+                  style={localStyles.goalButton}
+                  onPress={() => trackClick('continue_study')}
+                >
+                  <Text style={localStyles.goalButtonText}>Continue</Text>
+                </TouchableOpacity>
               </View>
             </LinearGradient>
           </View>
@@ -488,66 +651,221 @@ const getLocalStyles = (colors: any, spacing: any) => ({
     marginBottom: spacing.xl,
   },
 
-  // Study Streak Section
-  streakSection: {
+  // Progress Overview Section
+  progressSection: {
     marginBottom: spacing.xl,
   },
-  streakCard: {
+  progressGrid: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: spacing.md,
+    justifyContent: 'space-between' as const,
+  },
+  progressCard: {
+    width: '48%' as const,
+    aspectRatio: 1,
+  },
+  cardGradient: {
+    flex: 1,
     borderRadius: 20,
     padding: spacing.lg,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
     shadowColor: colors.shadow.color,
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: colors.status.success + '20',
+    borderColor: colors.border.light + '20',
   },
-  streakContent: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: spacing.md,
-  },
-  streakIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.status.success + '20',
+  cardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
+    marginBottom: spacing.md,
   },
-  streakInfo: {
+  cardNumber: {
+    fontSize: 24,
+    fontWeight: '800' as const,
+    fontFamily: 'Urbanist',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  cardLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    fontFamily: 'Urbanist',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  cardSubtext: {
+    fontSize: 12,
+    fontFamily: 'Urbanist',
+    color: colors.text.secondary,
+  },
+
+  // Recent Activity Section
+  activitySection: {
+    marginBottom: spacing.xl,
+  },
+  activityList: {
+    gap: spacing.sm,
+  },
+  activityItem: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: colors.surface.card,
+    padding: spacing.lg,
+    borderRadius: 16,
+    shadowColor: colors.shadow.color,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border.light + '20',
+  },
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: spacing.md,
+  },
+  activityContent: {
     flex: 1,
   },
-  streakTitle: {
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    fontFamily: 'Urbanist',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  activitySubtitle: {
+    fontSize: 14,
+    fontFamily: 'Urbanist',
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: colors.border.light + '40',
+    borderRadius: 2,
+    overflow: 'hidden' as const,
+  },
+  progressFill: {
+    height: '100%' as const,
+    borderRadius: 2,
+  },
+
+  // Daily Goal Section
+  goalSection: {
+    marginBottom: spacing.xl,
+  },
+  goalCard: {
+    borderRadius: 20,
+    padding: spacing.xl,
+    shadowColor: colors.shadow.color,
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: colors.border.light + '20',
+  },
+  goalHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    marginBottom: spacing.lg,
+  },
+  goalIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.brand.primary + '20',
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    marginRight: spacing.md,
+  },
+  goalInfo: {
+    flex: 1,
+  },
+  goalTitle: {
     fontSize: 18,
     fontWeight: '700' as const,
     fontFamily: 'Urbanist',
     color: colors.text.primary,
     marginBottom: spacing.xs,
   },
-  streakSubtitle: {
+  goalSubtitle: {
     fontSize: 14,
     fontFamily: 'Urbanist',
     color: colors.text.secondary,
   },
-  streakCount: {
-    alignItems: 'center' as const,
-  },
-  streakNumber: {
-    fontSize: 28,
+  goalProgress: {
+    fontSize: 20,
     fontWeight: '800' as const,
     fontFamily: 'Urbanist',
-    color: colors.status.success,
+    color: colors.brand.primary,
+  },
+  goalProgressBar: {
+    height: 8,
+    backgroundColor: colors.border.light + '40',
+    borderRadius: 4,
+    marginBottom: spacing.lg,
+    overflow: 'hidden' as const,
+  },
+  goalProgressFill: {
+    height: '100%' as const,
+    backgroundColor: colors.brand.primary,
+    borderRadius: 4,
+  },
+  goalStats: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.lg,
+  },
+  goalStat: {
+    alignItems: 'center' as const,
+  },
+  goalStatNumber: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    fontFamily: 'Urbanist',
+    color: colors.text.primary,
     marginBottom: spacing.xs,
   },
-  streakLabel: {
+  goalStatLabel: {
     fontSize: 12,
     fontFamily: 'Urbanist',
     color: colors.text.secondary,
+  },
+  goalButton: {
+    backgroundColor: colors.brand.primary,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: 12,
+    marginLeft: 'auto' as const,
+  },
+  goalButtonText: {
+    fontSize: 14,
     fontWeight: '600' as const,
+    fontFamily: 'Urbanist',
+    color: '#FFFFFF',
   },
 });
