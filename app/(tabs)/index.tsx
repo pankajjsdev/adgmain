@@ -6,6 +6,7 @@ import BannerCarousel from '@/components/BannerCarousel';
 import QuickLinks from '@/components/QuickLinks';
 import UpcomingTasks from '@/components/UpcomingTasks';
 import useAuthStore from '@/store/authStore';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   const { styles, colors, spacing } = useGlobalStyles();
@@ -34,7 +35,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={localStyles.iconButton}
-            onPress={() => trackClick('profile_icon', { location: 'header' })}
+            onPress={() => {
+              trackClick('profile_icon', { location: 'header' });
+              router.push('/(root)/profile');
+            }}
           >
             <Ionicons name="person-outline" size={24} color={colors.text.primary} />
           </TouchableOpacity>
