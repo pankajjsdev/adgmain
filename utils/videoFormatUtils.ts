@@ -33,8 +33,16 @@ export const detectVideoFormat = (url: string): VideoFormat => {
   
   const urlLower = url.toLowerCase();
   
-  // HLS detection
-  if (urlLower.includes('.m3u8') || urlLower.includes('hls') || urlLower.includes('/playlist.m3u8')) {
+  // Enhanced HLS detection
+  if (urlLower.includes('.m3u8') || 
+      urlLower.includes('hls') || 
+      urlLower.includes('/playlist.m3u8') ||
+      urlLower.includes('/master.m3u8') ||
+      urlLower.includes('/index.m3u8') ||
+      urlLower.endsWith('.m3u8') ||
+      urlLower.includes('m3u8?') ||
+      urlLower.includes('application/vnd.apple.mpegurl') ||
+      urlLower.includes('application/x-mpegurl')) {
     return VideoFormat.HLS;
   }
   
@@ -94,9 +102,14 @@ export const createVideoSource = (url: string, customHeaders?: { [key: string]: 
         ...baseSource,
         headers: {
           'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL, application/octet-stream',
+          'Content-Type': 'application/vnd.apple.mpegurl',
+          'User-Agent': 'ExpoVideoPlayer/1.0',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
           ...customHeaders,
         },
-        shouldCache: false, // HLS streams are typically not cached
+        shouldCache: false, // HLS streams should not be cached
+        overrideFileExtensionAndroid: 'm3u8', // Help Android recognize HLS format
       };
       
     case VideoFormat.DASH:
@@ -186,6 +199,18 @@ export const getFormatDisplayName = (format: VideoFormat): string => {
  * @returns object with buffer settings
  */
 export const getBufferConfig = (format: VideoFormat) => {
+  if (format === VideoFormat.HLS) {
+    // Optimized buffer settings for HLS streams
+    return {
+      minBufferMs: 10000, // 10 seconds minimum buffer
+      maxBufferMs: 60000, // 60 seconds maximum buffer
+      bufferForPlaybackMs: 2000, // 2 seconds to start playback
+      bufferForPlaybackAfterRebufferMs: 5000, // 5 seconds after rebuffer
+      maxPlaylistAgeMs: 30000, // 30 seconds playlist age
+      loadTimeout: 8000, // 8 seconds load timeout
+    };
+  }
+  
   if (isStreamingFormat(format)) {
     return {
       minBufferMs: 15000,
@@ -201,6 +226,125 @@ export const getBufferConfig = (format: VideoFormat) => {
     bufferForPlaybackMs: 1000,
     bufferForPlaybackAfterRebufferMs: 2000,
   };
+};
+
+/**
+ * Check if URL is a valid HLS stream
+ * @param url - Video URL to check
+ * @returns Promise<boolean>
+ */
+export const validateHLSStream = async (url: string): Promise<{ isValid: boolean; message: string; variants?: any[] }> => {
+  if (detectVideoFormat(url) !== VideoFormat.HLS) {
+    return {
+      isValid: false,
+      message: 'URL is not an HLS stream'
+    };
+  }
+  
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      headers: {
+        'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL',
+        'User-Agent': 'ExpoVideoPlayer/1.0'
+      }
+    });
+    
+    if (!response.ok) {
+      return {
+        isValid: false,
+        message: `HLS stream not accessible: ${response.status} ${response.statusText}`
+      };
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (contentType && !contentType.includes('mpegurl') && !contentType.includes('m3u8')) {
+      return {
+        isValid: false,
+        message: `Invalid content type for HLS: ${contentType}`
+      };
+    }
+    
+    return {
+      isValid: true,
+      message: 'Valid HLS stream detected'
+    };
+  } catch (error: any) {
+    return {
+      isValid: false,
+      message: `Failed to validate HLS stream: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Parse HLS manifest to get stream variants
+ * @param url - HLS manifest URL
+ * @returns Promise with stream variants info
+ */
+export const parseHLSManifest = async (url: string): Promise<{
+  isValid: boolean;
+  variants: Array<{
+    bandwidth: number;
+    resolution?: string;
+    codecs?: string;
+    url: string;
+  }>;
+  message: string;
+}> => {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL',
+        'User-Agent': 'ExpoVideoPlayer/1.0'
+      }
+    });
+    
+    if (!response.ok) {
+      return {
+        isValid: false,
+        variants: [],
+        message: `Failed to fetch manifest: ${response.status}`
+      };
+    }
+    
+    const manifestText = await response.text();
+    const lines = manifestText.split('\n');
+    const variants = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      if (line.startsWith('#EXT-X-STREAM-INF:')) {
+        // Parse stream info
+        const bandwidthMatch = line.match(/BANDWIDTH=(\d+)/);
+        const resolutionMatch = line.match(/RESOLUTION=(\d+x\d+)/);
+        const codecsMatch = line.match(/CODECS="([^"]+)"/);
+        
+        const nextLine = lines[i + 1]?.trim();
+        if (nextLine && !nextLine.startsWith('#')) {
+          variants.push({
+            bandwidth: bandwidthMatch ? parseInt(bandwidthMatch[1]) : 0,
+            resolution: resolutionMatch ? resolutionMatch[1] : undefined,
+            codecs: codecsMatch ? codecsMatch[1] : undefined,
+            url: nextLine.startsWith('http') ? nextLine : new URL(nextLine, url).href
+          });
+        }
+      }
+    }
+    
+    return {
+      isValid: true,
+      variants,
+      message: `Found ${variants.length} stream variants`
+    };
+  } catch (error: any) {
+    return {
+      isValid: false,
+      variants: [],
+      message: `Failed to parse manifest: ${error.message}`
+    };
+  }
 };
 
 /**
@@ -245,32 +389,94 @@ export const validateVideoUrl = (url: string): { isValid: boolean; format: Video
 };
 
 /**
- * Test video format utilities
+ * Test video format utilities including HLS validation
  */
-export const testVideoFormatUtils = () => {
+export const testVideoFormatUtils = async () => {
   console.log('🧪 Testing Video Format Utilities...');
   
   const testUrls = [
     'https://example.com/video.m3u8',
+    'https://example.com/master.m3u8',
+    'https://example.com/playlist.m3u8?token=abc123',
     'https://example.com/video.mpd',
     'https://example.com/manifest.mpd',
-    'https://example.com/playlist.m3u8',
     'https://example.com/video.mp4',
     'https://example.com/video.webm',
-    'https://example.com/unknown-format',
+    'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
+    'https://unknown-format-url',
   ];
   
-  testUrls.forEach(url => {
+  for (const url of testUrls) {
     const format = detectVideoFormat(url);
     const source = createVideoSource(url);
     const validation = validateVideoUrl(url);
+    const bufferConfig = getBufferConfig(format);
     
-    console.log(`URL: ${url}`);
-    console.log(`Format: ${getFormatDisplayName(format)}`);
-    console.log(`Is Streaming: ${isStreamingFormat(format)}`);
-    console.log(`Validation: ${validation.message}`);
-    console.log('---');
-  });
+    console.log(`\n📺 URL: ${url}`);
+    console.log(`🏷️  Format: ${getFormatDisplayName(format)}`);
+    console.log(`🌊 Is Streaming: ${isStreamingFormat(format)}`);
+    console.log(`✅ Validation: ${validation.message}`);
+    console.log(`⚡ Buffer Config:`, bufferConfig);
+    
+    // Test HLS-specific functionality
+    if (format === VideoFormat.HLS) {
+      console.log('🔍 Testing HLS-specific features...');
+      try {
+        const hlsValidation = await validateHLSStream(url);
+        console.log(`🎬 HLS Validation: ${hlsValidation.message}`);
+        
+        if (hlsValidation.isValid) {
+          const manifestInfo = await parseHLSManifest(url);
+          console.log(`📋 Manifest: ${manifestInfo.message}`);
+          if (manifestInfo.variants.length > 0) {
+            manifestInfo.variants.forEach((variant, index) => {
+              console.log(`   Variant ${index + 1}: ${variant.bandwidth}bps ${variant.resolution || 'Unknown'}`);
+            });
+          }
+        }
+      } catch (error: any) {
+        console.log(`❌ HLS Test Error: ${error.message}`);
+      }
+    }
+    
+    console.log('─'.repeat(60));
+  }
   
   console.log('✅ Video Format Utilities test completed');
+};
+
+/**
+ * Validate if URL appears to be a legitimate video source from API
+ * @param url - Video URL to validate
+ * @returns validation result
+ */
+export const validateVideoUrl = (url: string): { isValid: boolean; message: string } => {
+  if (!url || typeof url !== 'string') {
+    return { isValid: false, message: 'URL is required and must be a string' };
+  }
+  
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return { isValid: false, message: 'URL must start with http:// or https://' };
+  }
+  
+  // Check for common test/placeholder domains that should not be used in production
+  const testDomains = [
+    'placeholder.com',
+    'via.placeholder.com',
+    'commondatastorage.googleapis.com/gtv-videos-bucket',
+    'sample-videos.com',
+    'picsum.photos'
+  ];
+  
+  const urlDomain = url.toLowerCase();
+  for (const testDomain of testDomains) {
+    if (urlDomain.includes(testDomain)) {
+      return { 
+        isValid: false, 
+        message: `URL appears to be test/placeholder data from ${testDomain}. Please use actual API video data.` 
+      };
+    }
+  }
+  
+  return { isValid: true, message: 'URL appears valid' };
 };

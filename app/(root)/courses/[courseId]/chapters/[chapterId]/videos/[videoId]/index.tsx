@@ -6,21 +6,22 @@ import { useVideoPlayer } from '@/hooks/useVideoPlayer';
 import useCourseStore from '@/store/courseStore';
 import { VideoData } from '@/types/video';
 import { htmlToPlainText } from '@/utils/htmlUtils';
+import { validateVideoUrl } from '@/utils/videoFormatUtils';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Dimensions,
-  ImageBackground,
-  RefreshControl,
-  ScrollView,
-  StatusBar,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Dimensions,
+    ImageBackground,
+    RefreshControl,
+    ScrollView,
+    StatusBar,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -334,6 +335,42 @@ export default function VideoDetailScreen() {
           <Text style={styles.errorMessage}>The requested video could not be found.</Text>
           <TouchableOpacity 
             style={styles.buttonSecondary} 
+            onPress={() => router.back()}
+          >
+            <Text style={styles.buttonTextSecondary}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Validate video URL to ensure it's not test/dummy data
+  const videoUrlValidation = validateVideoUrl(videoData.videoUrl);
+  if (!videoUrlValidation.isValid) {
+    console.error('❌ Invalid video URL in API response:', {
+      videoId,
+      videoUrl: videoData.videoUrl,
+      validationMessage: videoUrlValidation.message,
+      apiEndpoint: `/video/student/video/${videoId}`
+    });
+    
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning" size={48} color={colors.status.warning} />
+          <Text style={styles.errorTitle}>Invalid Video Source</Text>
+          <Text style={styles.errorMessage}>
+            This video contains test/placeholder data instead of actual content. 
+            Please contact support if this issue persists.
+          </Text>
+          <TouchableOpacity 
+            style={styles.buttonPrimary} 
+            onPress={handleRefresh}
+          >
+            <Text style={styles.buttonTextPrimary}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.buttonSecondary, { marginTop: 12 }]} 
             onPress={() => router.back()}
           >
             <Text style={styles.buttonTextSecondary}>Go Back</Text>
