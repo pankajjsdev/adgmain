@@ -1,20 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import { Question } from '@/types/video';
+import { htmlToPlainText } from '@/utils/htmlUtils';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
 import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  ScrollView,
   Alert,
   Dimensions,
+  Image,
+  Modal,
   Platform,
-  StatusBar
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Question } from '@/types/video';
-import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 
 interface VideoQuestionModalProps {
   visible: boolean;
@@ -56,10 +57,13 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
   const modalStyles = {
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      backgroundColor: 'rgba(0, 0, 0, 0.9)', // Darker overlay for better visibility
       justifyContent: 'center' as const,
       alignItems: 'center' as const,
       padding: 20,
+      // Ensure modal is always on top
+      zIndex: 9999,
+      elevation: 9999, // For Android
     },
     modalContainer: {
       backgroundColor: '#fff',
@@ -69,6 +73,9 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
       overflow: 'hidden' as const,
       // Platform-specific safe area handling
       marginTop: Platform.OS === 'android' && !shouldUseLandscapeLayout ? getStatusBarHeight() : 0,
+      // Ensure modal is always on top
+      zIndex: 10000,
+      elevation: 10000, // For Android
     },
     modalContainerLandscape: {
       maxHeight: screenData.height * 0.9,
@@ -167,7 +174,7 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
 
         {/* Question Text */}
         <Text style={styles.questionText}>
-          {question.question.text}
+          {htmlToPlainText(question.question.text)}
         </Text>
 
         {/* Answer Options based on question type */}
@@ -212,7 +219,7 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
                     styles.optionText,
                     selectedAnswer === option.text && styles.selectedOptionText
                   ]}>
-                    {option.text}
+                    {htmlToPlainText(option.text)}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -262,7 +269,7 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
                       styles.optionText,
                       isSelected && styles.selectedOptionText
                     ]}>
-                      {option.text}
+                      {htmlToPlainText(option.text)}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -316,11 +323,31 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
       animationType="slide"
       transparent={true}
       onRequestClose={question.closeable ? onClose : undefined}
+      // Ensure modal is always on top
+      statusBarTranslucent={true}
+      presentationStyle="overFullScreen"
     >
-      <View style={styles.modalOverlay}>
+      <View style={[
+        modalStyles.modalOverlay,
+        { 
+          // Ensure modal is always on top of video player
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          elevation: 9999,
+        }
+      ]}>
         <View style={[
           modalStyles.modalContainer,
-          shouldUseLandscapeLayout && modalStyles.modalContainerLandscape
+          shouldUseLandscapeLayout && modalStyles.modalContainerLandscape,
+          {
+            // Ensure modal container is always on top
+            zIndex: 10000,
+            elevation: 10000,
+          }
         ]}>
           {/* Header */}
           <View style={styles.modalHeader}>

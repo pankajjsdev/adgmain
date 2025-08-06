@@ -1,12 +1,15 @@
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { Question } from '@/types/video';
+import { enterFullscreenOrientation, exitFullscreenOrientation } from '@/utils/orientationUtils';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoPlayer, VideoView } from 'expo-video';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, BackHandler, Dimensions, Platform, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { VideoQuality, VideoQualityModal } from './VideoQualityModal';
 import { VideoQuestionModal } from './VideoQuestionModal';
 
-const { width: screenWidth } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface ModernVideoPlayerProps {
   videoUrl: string;
@@ -73,16 +76,146 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const [showControls, setShowControls] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: screenWidth, height: screenHeight });
+  const [selectedQuality, setSelectedQuality] = useState<VideoQuality>('auto');
   
-  // Get screen dimensions for orientation detection
-  const screenData = Dimensions.get('window');
-  const isLandscape = screenData.width > screenData.height;
+  // Platform-specific orientation detection
+  const getActualOrientation = useCallback(() => {
+    const { width, height } = dimensions;
+    // Add platform-specific logic for better detection
+    if (Platform.OS === 'ios') {
+      // iOS sometimes reports dimensions incorrectly during transition
+      return width < height && !isFullscreen;
+    } else {
+      // Android is more reliable with dimensions
+      return width < height;
+    }
+  }, [dimensions, isFullscreen]);
+  
+  const actualIsPortrait = getActualOrientation();
+  
+  // Responsive sizing based on screen dimensions
+  const getResponsiveSize = useCallback((baseSize: number) => {
+    const scaleFactor = Math.min(dimensions.width, dimensions.height) / 375; // Using iPhone SE as base
+    return Math.round(baseSize * Math.min(scaleFactor, 1.5)); // Cap at 1.5x
+  }, [dimensions]);
   
   // Animation values
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   
   // Auto-hide controls after 3 seconds of inactivity
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Handle dimension changes
+  useEffect(() => {
+    const updateDimensions = ({ window }: { window: { width: number; height: number } }) => {
+      const { width, height } = window;
+      setDimensions({ width, height });
+      
+      // Platform-specific handling for orientation changes
+      if (Platform.OS === 'ios') {
+        // iOS sometimes needs a forced re-render after orientation change
+        setTimeout(() => {
+          setDimensions({ width, height });
+        }, 100);
+      }
+    };
+
+    // Initial dimensions
+    updateDimensions({ window: Dimensions.get('window') });
+
+    const subscription = Dimensions.addEventListener('change', updateDimensions);
+    return () => subscription?.remove();
+  }, []);
+  
+  // Load saved quality preference
+  useEffect(() => {
+    const loadQualityPreference = async () => {
+      try {
+        const savedQuality = await AsyncStorage.getItem('videoQuality');
+        if (savedQuality && ['auto', 'high', 'data_saver'].includes(savedQuality)) {
+          setSelectedQuality(savedQuality as VideoQuality);
+        }
+      } catch (error) {
+        console.error('Error loading quality preference:', error);
+      }
+    };
+    
+    loadQualityPreference();
+  }, []);
+  
+  // Handle initial orientation
+  useEffect(() => {
+    // Ensure we start in portrait mode unless already in fullscreen
+    if (!isFullscreen) {
+      exitFullscreenOrientation();
+      if (Platform.OS === 'android') {
+        StatusBar.setHidden(false);
+      }
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (isFullscreen) {
+        exitFullscreenOrientation();
+        if (Platform.OS === 'android') {
+          StatusBar.setHidden(false);
+        }
+      }
+    };
+  }, [isFullscreen]);
+  
+  // Button handlers
+  const handleFavorite = useCallback(() => {
+    setIsFavorite(!isFavorite);
+    // You can add API call here to save favorite status
+    Alert.alert('Success', isFavorite ? 'Removed from favorites' : 'Added to favorites');
+  }, [isFavorite]);
+  
+  const handleShare = useCallback(async () => {
+    try {
+      await Share.share({
+        message: `Check out this video: ${videoTitle}\n${videoAuthor}`,
+        title: videoTitle,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  }, [videoTitle, videoAuthor]);
+  
+  const handleSettings = useCallback(() => {
+    setShowQualityModal(true);
+    setShowSpeedMenu(false); // Close speed menu if open
+  }, []);
+  
+  const handleDownload = useCallback(() => {
+    Alert.alert(
+      'Download Video',
+      'Video download feature will be available soon!',
+      [{ text: 'OK' }]
+    );
+  }, []);
+  
+  const handleQualitySelect = useCallback(async (quality: VideoQuality) => {
+    setSelectedQuality(quality);
+    
+    // Save preference to AsyncStorage
+    try {
+      await AsyncStorage.setItem('videoQuality', quality);
+    } catch (error) {
+      console.error('Error saving quality preference:', error);
+    }
+    
+    // You can add API call here to update video quality
+    const qualityNames = {
+      'auto': 'Auto',
+      'high': 'Higher quality',
+      'data_saver': 'Data saver'
+    };
+    Alert.alert('Quality Changed', `Video quality set to: ${qualityNames[quality]}`);
+  }, []);
   
   const resetControlsTimer = useCallback(() => {
     if (hideControlsTimer.current) {
@@ -146,7 +279,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     if (!canSeek) return;
     
     const { locationX } = event.nativeEvent;
-    const progressBarWidth = isFullscreen ? screenWidth - 120 : screenWidth - 80;
+    const progressBarWidth = dimensions.width - (getResponsiveSize(40) * 2); // Account for padding
     const seekPercentage = Math.max(0, Math.min(1, locationX / progressBarWidth));
     const seekTime = seekPercentage * duration;
     handleSeek(seekTime);
@@ -164,15 +297,93 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
 
   const progress = duration > 0 ? currentTime / duration : 0;
 
-  // Handle fullscreen toggle
-  const handleFullscreenToggle = () => {
-    const newFullscreen = !isFullscreen;
-    setIsFullscreen(newFullscreen);
-    onFullscreenChange?.(newFullscreen);
-  };
+  // Handle fullscreen toggle with orientation switching
+  const handleFullscreenToggle = useCallback(async () => {
+    try {
+      const newFullscreen = !isFullscreen;
+      
+      // Platform-specific pre-orientation change handling
+      if (Platform.OS === 'ios') {
+        // iOS needs a small delay for smoother transitions
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      // Update state first for immediate UI feedback
+      setIsFullscreen(newFullscreen);
+      
+      // Switch orientation based on fullscreen state
+      let orientationSuccess = false;
+      if (newFullscreen) {
+        orientationSuccess = await enterFullscreenOrientation();
+        // Hide status bar on Android
+        if (Platform.OS === 'android') {
+          StatusBar.setHidden(true);
+        }
+      } else {
+        orientationSuccess = await exitFullscreenOrientation();
+        // Show status bar on Android
+        if (Platform.OS === 'android') {
+          StatusBar.setHidden(false);
+        }
+      }
+      
+      // Handle orientation failure
+      if (!orientationSuccess) {
+        console.warn('Orientation change failed, reverting state');
+        setIsFullscreen(!newFullscreen);
+        Alert.alert(
+          'Orientation Error',
+          'Unable to change screen orientation. Please check your device settings.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Notify parent component
+      onFullscreenChange?.(newFullscreen);
+      
+      // Platform-specific post-orientation handling
+      if (Platform.OS === 'android') {
+        // Force a layout update on Android
+        setTimeout(() => {
+          const { width, height } = Dimensions.get('window');
+          setDimensions({ width, height });
+        }, 200);
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+      Alert.alert(
+        'Fullscreen Error',
+        'An error occurred while changing fullscreen mode.',
+        [{ text: 'OK' }]
+      );
+    }
+  }, [isFullscreen, onFullscreenChange]);
+  
+  // Handle Android back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (isFullscreen) {
+        handleFullscreenToggle();
+        return true; // Prevent default back behavior
+      }
+      return false; // Let default back behavior happen
+    });
+    
+    return () => backHandler.remove();
+  }, [isFullscreen, handleFullscreenToggle]);
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style, isFullscreen && styles.fullscreenContainer]}>
+      {/* Dark overlay when controls are shown */}
+      <Animated.View 
+        style={[
+          styles.darkOverlay,
+          { opacity: controlsOpacity }
+        ]}
+        pointerEvents="none"
+      />
+      
       {/* Tap overlay to toggle controls */}
       <TouchableOpacity 
         style={styles.tapOverlay} 
@@ -188,88 +399,187 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
         ]}
         pointerEvents={showControls ? 'auto' : 'none'}
       >
-        {/* Top Controls - Title and Right Actions */}
+        {/* Top Controls - Title */}
         <View style={styles.topControls}>
           <View style={styles.titleContainer}>
-            <Text style={styles.videoTitle} numberOfLines={2}>
+            <Text style={[styles.videoTitle, { fontSize: getResponsiveSize(20) }]} numberOfLines={2}>
               {videoTitle}
             </Text>
-            <Text style={styles.videoAuthor}>
+            <Text style={[styles.videoAuthor, { fontSize: getResponsiveSize(16) }]}>
               {videoAuthor}
             </Text>
           </View>
-          
-          <View style={styles.topRightControls}>
-            <TouchableOpacity 
-              style={styles.topControlButton}
-              onPress={() => {
-                onClose?.();
-                handleControlPress();
-              }}
-            >
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.topControlButton}
-              onPress={handleControlPress}
-            >
-              <Ionicons name="heart-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.topControlButton}
-              onPress={handleControlPress}
-            >
-              <Ionicons name="share-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-            {isLandscape && (
-              <>
-                <TouchableOpacity 
-                  style={styles.topControlButton}
-                  onPress={() => {
-                    handleFullscreenToggle();
-                    handleControlPress();
-                  }}
-                >
-                  <Ionicons name="expand" size={24} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.topControlButton}
-                  onPress={() => {
-                    setShowSpeedMenu(!showSpeedMenu);
-                    handleControlPress();
-                  }}
-                >
-                  <Ionicons name="settings-outline" size={24} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.topControlButton}
-                  onPress={handleControlPress}
-                >
-                  <Ionicons name="download-outline" size={24} color="#fff" />
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+        </View>
+        
+        {/* Right Side Controls */}
+        <View style={[styles.rightSideControls, actualIsPortrait && styles.rightSideControlsPortrait]}>
+          {actualIsPortrait ? (
+            <>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(48),
+                  height: getResponsiveSize(48),
+                  borderRadius: getResponsiveSize(24)
+                }]}
+                onPress={() => {
+                  onClose?.();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name="close" size={getResponsiveSize(24)} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(48),
+                  height: getResponsiveSize(48),
+                  borderRadius: getResponsiveSize(24)
+                }]}
+                onPress={() => {
+                  handleFavorite();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons 
+                  name={isFavorite ? "heart" : "heart-outline"} 
+                  size={getResponsiveSize(24)} 
+                  color={isFavorite ? "#ff3b30" : "#000"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(48),
+                  height: getResponsiveSize(48),
+                  borderRadius: getResponsiveSize(24)
+                }]}
+                onPress={() => {
+                  handleShare();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name="share-outline" size={getResponsiveSize(24)} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(48),
+                  height: getResponsiveSize(48),
+                  borderRadius: getResponsiveSize(24)
+                }]}
+                onPress={() => {
+                  handleFullscreenToggle();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name={isFullscreen ? "contract" : "expand"} size={getResponsiveSize(24)} color="#000" />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
+                }]}
+                onPress={() => {
+                  handleFullscreenToggle();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name={isFullscreen ? "contract" : "expand"} size={getResponsiveSize(22)} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
+                }]}
+                onPress={() => {
+                  onClose?.();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name="close" size={getResponsiveSize(22)} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
+                }]}
+                onPress={() => {
+                  handleFavorite();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons 
+                  name={isFavorite ? "heart" : "heart-outline"} 
+                  size={getResponsiveSize(22)} 
+                  color={isFavorite ? "#ff3b30" : "#000"} 
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
+                }]}
+                onPress={() => {
+                  handleShare();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name="share-outline" size={getResponsiveSize(22)} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
+                }]}
+                onPress={() => {
+                  handleSettings();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name="settings-outline" size={getResponsiveSize(22)} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.sideControlButton, {
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
+                }]}
+                onPress={() => {
+                  handleDownload();
+                  handleControlPress();
+                }}
+              >
+                <Ionicons name="download-outline" size={getResponsiveSize(22)} color="#000" />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
         
         {/* Center Controls Container */}
         <View style={styles.centerControlsContainer}>
-          {/* Skip Backward Button - Only show in landscape */}
-          {isLandscape && (
-            <TouchableOpacity 
-              style={styles.skipButton}
-              onPress={() => {
-                if (canSeek) {
-                  const seekTime = Math.max(0, currentTime - 10);
-                  handleSeek(seekTime);
-                }
-                handleControlPress();
-              }}
-            >
-              <Ionicons name="play-skip-back" size={28} color="#fff" />
-              <Text style={styles.skipText}>10</Text>
-            </TouchableOpacity>
-          )}
+          {/* Skip Backward Button */}
+          <TouchableOpacity 
+            style={[styles.skipButton, {
+              width: getResponsiveSize(56),
+              height: getResponsiveSize(56),
+              borderRadius: getResponsiveSize(28)
+            }]}
+            onPress={() => {
+              const seekTime = Math.max(0, currentTime - 10);
+              handleSeek(seekTime);
+              handleControlPress();
+            }}
+          >
+            <View style={styles.skipButtonInner}>
+              <Ionicons name="refresh" size={getResponsiveSize(24)} color="#fff" style={{ transform: [{ scaleX: -1 }] }} />
+              <Text style={[styles.skipText, { fontSize: getResponsiveSize(12) }]}>10</Text>
+            </View>
+          </TouchableOpacity>
           
           {/* Center Play/Pause Button */}
           <TouchableOpacity 
@@ -279,32 +589,38 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
               handleControlPress();
             }}
           >
-            <View style={styles.playButtonInner}>
+            <View style={[styles.playButtonInner, {
+              width: getResponsiveSize(70),
+              height: getResponsiveSize(70),
+              borderRadius: getResponsiveSize(35)
+            }]}>
               <Ionicons 
                 name={isPlaying ? "pause" : "play"} 
-                size={36} 
+                size={getResponsiveSize(40)} 
                 color="#000" 
                 style={{ marginLeft: isPlaying ? 0 : 4 }}
               />
             </View>
           </TouchableOpacity>
           
-          {/* Skip Forward Button - Only show in landscape */}
-          {isLandscape && (
-            <TouchableOpacity 
-              style={styles.skipButton}
-              onPress={() => {
-                if (canSeek) {
-                  const seekTime = Math.min(duration, currentTime + 10);
-                  handleSeek(seekTime);
-                }
-                handleControlPress();
-              }}
-            >
-              <Ionicons name="play-skip-forward" size={28} color="#fff" />
-              <Text style={styles.skipText}>10</Text>
-            </TouchableOpacity>
-          )}
+          {/* Skip Forward Button */}
+          <TouchableOpacity 
+            style={[styles.skipButton, {
+              width: getResponsiveSize(56),
+              height: getResponsiveSize(56),
+              borderRadius: getResponsiveSize(28)
+            }]}
+            onPress={() => {
+              const seekTime = Math.min(duration, currentTime + 10);
+              handleSeek(seekTime);
+              handleControlPress();
+            }}
+          >
+            <View style={styles.skipButtonInner}>
+              <Ionicons name="refresh" size={getResponsiveSize(24)} color="#fff" />
+              <Text style={[styles.skipText, { fontSize: getResponsiveSize(12) }]}>10</Text>
+            </View>
+          </TouchableOpacity>
         </View>
         
         {/* Bottom Controls */}
@@ -329,19 +645,70 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           
           {/* Time Display */}
           <View style={styles.timeContainer}>
-            <Text style={styles.timeText}>
+            <Text style={[styles.timeText, { fontSize: getResponsiveSize(14) }]}>
               {formatTime(currentTime)}
             </Text>
-            <Text style={styles.durationText}>
+            <Text style={[styles.durationText, { fontSize: getResponsiveSize(14) }]}>
               {formatTime(duration)}
             </Text>
           </View>
           
-          {/* Video Quality */}
-          <Text style={styles.qualityText}>
-            Video Quality: Auto
+          {/* Video Quality Text */}
+          <Text style={[styles.qualityText, { fontSize: getResponsiveSize(14) }]}>
+            Video Quality: {selectedQuality === 'auto' ? 'Auto' : selectedQuality === 'high' ? 'High' : 'Data Saver'}
           </Text>
         </View>
+        
+        {/* Bottom Navigation Controls */}
+        {actualIsPortrait && (
+          <View style={styles.bottomNavigation}>
+            <TouchableOpacity 
+              style={styles.navButton}
+              onPress={() => {
+                Alert.alert('Navigation', 'Overview button pressed');
+                handleControlPress();
+              }}
+            >
+              <View style={styles.navButtonInner}>
+                <View style={styles.navIcon}>
+                  <View style={styles.navSquare} />
+                  <View style={styles.navSquare} />
+                  <View style={styles.navSquare} />
+                </View>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.navButton}
+              onPress={() => {
+                Alert.alert('Navigation', 'Home button pressed');
+                handleControlPress();
+              }}
+            >
+              <View style={styles.navButtonInner}>
+                <View style={[styles.navCircle, {
+                  width: getResponsiveSize(20),
+                  height: getResponsiveSize(20),
+                  borderRadius: getResponsiveSize(10)
+                }]} />
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.navButton}
+              onPress={() => {
+                if (onClose) {
+                  onClose();
+                } else {
+                  Alert.alert('Navigation', 'Back button pressed');
+                }
+                handleControlPress();
+              }}
+            >
+              <Ionicons name="chevron-back" size={getResponsiveSize(24)} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
       </Animated.View>
       
       {/* Speed Menu */}
@@ -381,13 +748,21 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
         </View>
       )}
       
-      {/* Question Modal */}
+      {/* Question Modal - Always on top */}
       <VideoQuestionModal
         visible={showQuestion}
         question={currentQuestion || null}
         onAnswer={onQuestionAnswer || (() => {})}
         onClose={onQuestionClose}
-        isFullscreen={isLandscape}
+        isFullscreen={!actualIsPortrait}
+      />
+      
+      {/* Video Quality Modal */}
+      <VideoQualityModal
+        visible={showQualityModal}
+        selectedQuality={selectedQuality}
+        onQualitySelect={handleQualitySelect}
+        onClose={() => setShowQualityModal(false)}
       />
     </View>
   );
@@ -398,6 +773,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
   },
+  fullscreenContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000',
+    zIndex: 999,
+    elevation: 999, // For Android
+  },
   controlsOverlay: {
     position: 'absolute',
     top: 0,
@@ -405,58 +790,66 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     justifyContent: 'space-between',
-    paddingTop: '20%',
-    paddingBottom:'20%',
-    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   topControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    paddingHorizontal: 20,
   },
   titleContainer: {
-    flex: 1,
-    paddingRight: 20,
+    maxWidth: '70%',
   },
   videoTitle: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
     marginBottom: 4,
-    lineHeight: 24,
+    lineHeight: 26,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   videoAuthor: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 16,
     fontWeight: '400',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  topRightControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  rightSideControls: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -150 }],
     gap: 8,
   },
-  topControlButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  rightSideControlsPortrait: {
+    top: 60,
+    transform: [{ translateY: 0 }],
+  },
+  sideControlButton: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   centerControlsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 60,
+    gap: 40,
   },
   centerPlayButton: {
     alignSelf: 'center',
   },
   playButtonInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -466,21 +859,25 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   skipButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  skipButtonInner: {
     alignItems: 'center',
   },
   skipText: {
     color: '#fff',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '700',
+    position: 'absolute',
+    bottom: -1,
   },
   bottomControls: {
-    alignSelf: 'stretch',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
   progressContainer: {
     height: 40,
@@ -502,35 +899,57 @@ const styles = StyleSheet.create({
     top: 0,
   },
   progressThumb: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#fff',
     position: 'absolute',
-    top: -4,
-    marginLeft: -6,
+    top: -5,
+    marginLeft: -7,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   timeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   timeText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   durationText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   qualityText: {
-    color: 'rgba(255,255,255,0.8)',
+    color: '#fff',
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: '500',
     textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  bottomRightControls: {
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  fullscreenButton: {
+    marginLeft: 16,
+    padding: 8,
   },
   speedMenu: {
     position: 'absolute',
@@ -575,5 +994,48 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 1,
+  },
+  darkOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  bottomNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 10,
+  },
+  navButton: {
+    padding: 10,
+  },
+  navButtonInner: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  navIcon: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: 16,
+    height: 16,
+    justifyContent: 'space-between',
+  },
+  navSquare: {
+    width: 6,
+    height: 6,
+    backgroundColor: '#fff',
+    margin: 1,
+  },
+  navCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
   },
 });

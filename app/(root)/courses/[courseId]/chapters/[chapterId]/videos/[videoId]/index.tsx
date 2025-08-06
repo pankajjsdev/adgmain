@@ -1,6 +1,6 @@
 // import { QuickOrientationTest } from '@/components/QuickOrientationTest';
 import { VideoPlayer } from '@/components/VideoPlayer';
-import { VideoQuestionModal } from '@/components/VideoQuestionModal';
+
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { useVideoPlayer } from '@/hooks/useVideoPlayer';
 import useCourseStore from '@/store/courseStore';
@@ -11,17 +11,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    Dimensions,
-    ImageBackground,
-    RefreshControl,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  ImageBackground,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -159,13 +159,7 @@ export default function VideoDetailScreen() {
     }
   });
 
-  // Create a wrapper function to match VideoQuestionModal's expected signature
-  const handleModalAnswer = useCallback((answer: string) => {
-    if (handleQuestionAnswer) {
-      // The handleQuestionAnswer from useVideoPlayer hook only expects the answer string
-      handleQuestionAnswer(answer);
-    }
-  }, [handleQuestionAnswer]);
+
 
   // Animation functions for smooth UI transitions
   const animateContentIn = useCallback(() => {
@@ -1176,6 +1170,7 @@ export default function VideoDetailScreen() {
               }}
               onFullscreenChange={(isFullscreen) => {
                 setIsVideoFullscreen(isFullscreen);
+                console.log('📱 Fullscreen state changed:', isFullscreen);
               }}
               onClose={() => {
                 console.log('🔙 Closing fullscreen video player');
@@ -1188,21 +1183,14 @@ export default function VideoDetailScreen() {
               onQuestionAnswer={handleQuestionAnswer}
               onQuestionClose={closeQuestion}
               // Video title and author
-              videoTitle={videoData?.videoTitle || 'Video Title'}
-              videoAuthor={`by ${videoData?.videoTitle ? 'Instructor' : 'Unknown Author'}`}
+              videoTitle={videoData?.videoTitle || 'Nadi Shodhana Pranayama'}
+              videoAuthor={'by Joshna Ramakrishnan'}
               style={{ flex: 1 }}
             />
           )}
         </View>
 
-        {/* Video Question Modal */}
-        <VideoQuestionModal
-          visible={playerState?.showQuestion || false}
-          question={playerState?.currentQuestion}
-          onAnswer={handleModalAnswer}
-          onClose={playerState?.currentQuestion?.closeable ? closeQuestion : undefined}
-          isFullscreen={true} // Always fullscreen when video player is showing
-        />
+
       </View>
     );
   }
@@ -1648,14 +1636,7 @@ export default function VideoDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Video Question Modal */}
-      <VideoQuestionModal
-        visible={playerState?.showQuestion || false}
-        question={playerState?.currentQuestion}
-        onAnswer={handleModalAnswer}
-        onClose={playerState?.currentQuestion?.closeable ? closeQuestion : undefined}
-        isFullscreen={isVideoFullscreen}
-      />
+
     </View>
   );
 }
