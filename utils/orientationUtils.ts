@@ -1,5 +1,5 @@
-import { Platform } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { Platform } from 'react-native';
 
 /**
  * Cross-platform orientation utilities for video player fullscreen functionality
@@ -20,7 +20,7 @@ export const getOrientationConfig = (): OrientationConfig => {
   if (Platform.OS === 'ios') {
     return {
       portrait: ScreenOrientation.OrientationLock.PORTRAIT_UP,
-      landscape: ScreenOrientation.OrientationLock.LANDSCAPE_LEFT, // iOS prefers left landscape
+      landscape: ScreenOrientation.OrientationLock.LANDSCAPE, // Changed to allow both landscape orientations on iOS too
     };
   } else {
     return {
@@ -31,7 +31,7 @@ export const getOrientationConfig = (): OrientationConfig => {
 };
 
 /**
- * Safely lock orientation with error handling
+ * Safely lock orientation with error handling and platform-specific logic
  * @param orientation - Target orientation lock
  * @returns Promise<boolean> - Success status
  */
@@ -39,10 +39,33 @@ export const lockOrientation = async (
   orientation: ScreenOrientation.OrientationLock
 ): Promise<boolean> => {
   try {
+    // Platform-specific handling
+    if (Platform.OS === 'ios') {
+      // iOS sometimes needs permissions check
+      const supportedOrientations = await ScreenOrientation.getOrientationLockAsync();
+      console.log('Current iOS orientation lock:', supportedOrientations);
+    }
+    
+    // Attempt to lock orientation
     await ScreenOrientation.lockAsync(orientation);
+    
+    // Verify the lock was successful (important for iOS)
+    if (Platform.OS === 'ios') {
+      // Small delay for iOS to process the change
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
     return true;
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Failed to lock orientation:', error);
+    
+    // Platform-specific error handling
+    if (Platform.OS === 'ios' && error.message?.includes('not supported')) {
+      console.warn('iOS: Orientation lock not supported in this context');
+    } else if (Platform.OS === 'android' && error.message?.includes('permission')) {
+      console.warn('Android: Missing orientation permission');
+    }
+    
     return false;
   }
 };
@@ -84,21 +107,79 @@ export const initializePortraitOrientation = async (): Promise<boolean> => {
 };
 
 /**
- * Switch to fullscreen landscape orientation
+ * Switch to fullscreen landscape orientation with platform-specific handling
  * @returns Promise<boolean> - Success status
  */
 export const enterFullscreenOrientation = async (): Promise<boolean> => {
-  const config = getOrientationConfig();
-  return await lockOrientation(config.landscape);
+  try {
+    const config = getOrientationConfig();
+    
+    // Platform-specific pre-lock handling
+    if (Platform.OS === 'android') {
+      // Android: Ensure we unlock first for smoother transition
+      await unlockOrientation();
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    const success = await lockOrientation(config.landscape);
+    
+    if (success && Platform.OS === 'ios') {
+      // iOS: Additional verification after lock
+      const currentOrientation = await getCurrentOrientation();
+      const isNowLandscape = currentOrientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT || 
+                            currentOrientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT;
+      
+      if (!isNowLandscape) {
+        // Force rotation on iOS if needed
+        console.log('iOS: Forcing landscape orientation');
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+        await new Promise(resolve => setTimeout(resolve, 100));
+        await lockOrientation(config.landscape);
+      }
+    }
+    
+    return success;
+  } catch (error) {
+    console.error('Error entering fullscreen orientation:', error);
+    return false;
+  }
 };
 
 /**
- * Exit fullscreen and return to portrait orientation
+ * Exit fullscreen and return to portrait orientation with platform-specific handling
  * @returns Promise<boolean> - Success status
  */
 export const exitFullscreenOrientation = async (): Promise<boolean> => {
-  const config = getOrientationConfig();
-  return await lockOrientation(config.portrait);
+  try {
+    const config = getOrientationConfig();
+    
+    // Platform-specific pre-lock handling
+    if (Platform.OS === 'android') {
+      // Android: Ensure we unlock first for smoother transition
+      await unlockOrientation();
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    const success = await lockOrientation(config.portrait);
+    
+    if (success && Platform.OS === 'ios') {
+      // iOS: Additional verification after lock
+      const currentOrientation = await getCurrentOrientation();
+      const isNowPortrait = currentOrientation === ScreenOrientation.Orientation.PORTRAIT_UP || 
+                           currentOrientation === ScreenOrientation.Orientation.PORTRAIT_DOWN;
+      
+      if (!isNowPortrait) {
+        // Force rotation on iOS if needed
+        console.log('iOS: Forcing portrait orientation');
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      }
+    }
+    
+    return success;
+  } catch (error) {
+    console.error('Error exiting fullscreen orientation:', error);
+    return false;
+  }
 };
 
 /**

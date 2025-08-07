@@ -1,16 +1,15 @@
-import { ModernVideoPlayer } from './ModernVideoPlayer';
-import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import {
   enterFullscreenOrientation,
   exitFullscreenOrientation,
   initializePortraitOrientation,
   unlockOrientation
 } from '@/utils/orientationUtils';
-import { createVideoSource } from '@/utils/videoFormatUtils';
-import { VideoView, useVideoPlayer, TimeUpdateEventPayload, StatusChangeEventPayload, SourceLoadEventPayload } from 'expo-video';
+import { VideoFormat, createVideoSource, detectVideoFormat, getBufferConfig, parseHLSManifest, validateHLSStream, validateVideoUrl } from '@/utils/videoFormatUtils';
 import { useEventListener } from 'expo';
+import { SourceLoadEventPayload, StatusChangeEventPayload, TimeUpdateEventPayload, VideoView, useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StatusBar, StyleSheet, View } from 'react-native';
+import { Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ModernVideoPlayer } from './ModernVideoPlayer';
 
 interface VideoPlayerProps {
   videoUrl: string;
@@ -74,13 +73,45 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const internalVideoRef = useRef<VideoView>(null);
   const videoRef = externalVideoRef || internalVideoRef;
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hlsValidation, setHlsValidation] = useState<{ isValid: boolean; message: string } | null>(null);
+  const [hlsManifest, setHlsManifest] = useState<any>(null);
+  const [streamHealth, setStreamHealth] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
   
-  // Create properly configured video source
-  const videoSource = useMemo(() => {
+  // Detect video format and create properly configured video source
+  const { videoSource, videoFormat } = useMemo(() => {
     console.log('🔧 Creating video source for URL:', videoUrl);
+    
+    // Validate the video URL first
+    const urlValidation = validateVideoUrl(videoUrl);
+    if (!urlValidation.isValid) {
+      console.error('❌ Invalid video URL detected:', urlValidation.message);
+      console.error('🔍 Please ensure API returns valid video URLs, not test/placeholder data');
+    }
+    
+    const format = detectVideoFormat(videoUrl);
     const source = createVideoSource(videoUrl);
+    const bufferConfig = getBufferConfig(format);
+    
+    console.log('🔧 Detected video format:', format);
     console.log('🔧 Created video source:', source);
-    return source;
+    console.log('🔧 Buffer configuration:', bufferConfig);
+    
+    // If it's HLS, apply optimized settings
+    if (format === VideoFormat.HLS) {
+      console.log('🎬 Applying HLS optimizations');
+      // Apply HLS-specific settings to the source
+      (source as any).metadata = {
+        ...(source as any).metadata,
+        ...bufferConfig,
+        allowExternalPlayback: true,
+        allowsAirPlay: true,
+      };
+    }
+    
+    return { 
+      videoSource: source, 
+      videoFormat: format 
+    };
   }, [videoUrl]);
 
   // Create video player instance with expo-video
@@ -100,6 +131,43 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Use provided player or internal player
   const playerInstance = player || internalPlayer;
   
+  // HLS validation and monitoring
+  useEffect(() => {
+    if (videoFormat === VideoFormat.HLS) {
+      console.log('🔍 Starting HLS stream validation for:', videoUrl);
+      setStreamHealth('checking');
+      
+      // Validate HLS stream
+      validateHLSStream(videoUrl)
+        .then((validation) => {
+          console.log('✅ HLS validation result:', validation);
+          setHlsValidation(validation);
+          setStreamHealth(validation.isValid ? 'healthy' : 'unhealthy');
+          
+          // Parse manifest if validation is successful
+          if (validation.isValid) {
+            parseHLSManifest(videoUrl)
+              .then((manifest) => {
+                console.log('📋 HLS manifest parsed:', manifest);
+                setHlsManifest(manifest);
+              })
+              .catch((error) => {
+                console.warn('⚠️ Failed to parse HLS manifest:', error);
+              });
+          }
+        })
+        .catch((error) => {
+          console.error('❌ HLS validation failed:', error);
+          setHlsValidation({ isValid: false, message: error.message });
+          setStreamHealth('unhealthy');
+        });
+    } else {
+      setStreamHealth('unknown');
+      setHlsValidation(null);
+      setHlsManifest(null);
+    }
+  }, [videoUrl, videoFormat]);
+
   // Validate player instance
   useEffect(() => {
     console.log('🔍 Player instance validation:', {
@@ -110,6 +178,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     });
   }, [playerInstance]);
 
+
+
   useEffect(() => {
     if (videoUrl) {
       console.log('🔄 Replacing video source:', videoUrl);
@@ -119,13 +189,31 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         length: videoUrl.length,
         domain: videoUrl.split('/')[2],
         extension: videoUrl.split('.').pop(),
-        format: videoSource.format
+        format: videoFormat,
+        isHLS: videoFormat === VideoFormat.HLS,
+        isStreaming: [VideoFormat.HLS, VideoFormat.DASH, VideoFormat.MPD].includes(videoFormat)
       });
+      
+      // For HLS streams, provide additional logging and handling
+      if (videoFormat === VideoFormat.HLS) {
+        console.log('🎬 Loading HLS stream:', {
+          validationStatus: streamHealth,
+          hasManifest: !!hlsManifest,
+          manifestVariants: hlsManifest?.variants?.length || 0
+        });
+        
+        if (hlsValidation && !hlsValidation.isValid) {
+          console.warn('⚠️ HLS validation failed, but attempting to load anyway:', hlsValidation.message);
+        }
+      }
       
       // Replace the source in the player asynchronously
       playerInstance.replaceAsync(videoSource)
         .then(() => {
           console.log('✅ Video source replaced successfully');
+          if (videoFormat === VideoFormat.HLS) {
+            console.log('🎬 HLS stream loaded successfully');
+          }
         })
         .catch((error: any) => {
           console.error('❌ Failed to replace video source:', error);
@@ -133,24 +221,42 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             errorMessage: error.message,
             errorCode: error.code,
             videoUrl,
+            videoFormat,
             videoSource
           });
           
-          // Try with a test video URL to verify player functionality
-          const testUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-          console.log('🧪 Trying with test video URL:', testUrl);
-          const testSource = createVideoSource(testUrl);
+          // Provide detailed error information for API data issues
+          console.error('📊 Video Source Analysis:', {
+            url: videoUrl,
+            format: videoFormat,
+            isValidUrl: videoUrl.startsWith('http'),
+            domain: videoUrl.split('/')[2],
+            extension: videoUrl.split('.').pop(),
+            timestamp: new Date().toISOString()
+          });
           
-          playerInstance.replaceAsync(testSource)
-            .then(() => {
-              console.log('✅ Test video loaded successfully - player is working');
-            })
-            .catch((testError: any) => {
-              console.error('❌ Test video also failed:', testError);
-            });
+          // For HLS streams, provide specific troubleshooting
+          if (videoFormat === VideoFormat.HLS) {
+            console.error('🩺 HLS troubleshooting tips:');
+            console.error('  - Check if the M3U8 manifest is accessible');
+            console.error('  - Verify CORS headers are properly configured');
+            console.error('  - Ensure the stream variants are valid');
+            console.error('  - Check network connectivity and firewall settings');
+            console.error('  - Validate the API response contains a valid video URL');
+          }
+          
+          // Log specific error details for API debugging
+          console.error('🔍 Error Details for API Team:', {
+            errorType: error.constructor.name,
+            errorMessage: error.message,
+            errorCode: error.code,
+            videoUrl,
+            timestamp: new Date().toISOString(),
+            stackTrace: error.stack
+          });
         });
     }
-  }, [videoUrl, playerInstance, videoSource]);
+  }, [videoUrl, playerInstance, videoSource, videoFormat, hlsValidation, hlsManifest, streamHealth]);
 
   // Initialize orientation when component mounts
   useEffect(() => {
@@ -349,6 +455,43 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         allowsPictureInPicture={false}
       />
 
+      {/* Format Indicator */}
+      {videoFormat && videoFormat !== VideoFormat.UNKNOWN && (
+        <View style={styles.formatIndicator}>
+          <View style={[
+            styles.formatBadge,
+            { backgroundColor: videoFormat === VideoFormat.HLS ? '#4CAF50' : '#2196F3' }
+          ]}>
+            <Text style={styles.formatText}>
+              {videoFormat === VideoFormat.HLS ? 'HLS' : videoFormat.toUpperCase()}
+            </Text>
+          </View>
+          {videoFormat === VideoFormat.HLS && (
+            <View style={[
+              styles.statusBadge,
+              { backgroundColor: 
+                streamHealth === 'healthy' ? '#4CAF50' : 
+                streamHealth === 'unhealthy' ? '#FF5722' : 
+                streamHealth === 'checking' ? '#FF9800' : '#9E9E9E' 
+              }
+            ]}>
+              <Text style={styles.formatText}>
+                {streamHealth === 'healthy' ? '✓' : 
+                 streamHealth === 'unhealthy' ? '!' : 
+                 streamHealth === 'checking' ? '⟳' : '?'}
+              </Text>
+            </View>
+          )}
+          {videoFormat === VideoFormat.HLS && hlsManifest && hlsManifest.variants && hlsManifest.variants.length > 0 && (
+            <View style={[styles.statusBadge, { backgroundColor: '#9C27B0' }]}>
+              <Text style={styles.formatText}>
+                {hlsManifest.variants.length}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
       {/* Modern Video Player Controls */}
       <ModernVideoPlayer
         videoUrl={videoUrl}
@@ -439,16 +582,35 @@ const styles = StyleSheet.create({
     left: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    paddingHorizontal: 10,
+    gap: 4,
+  },
+  formatBadge: {
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statusBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   formatText: {
     color: '#fff',
     fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 4,
+    fontWeight: '600',
+    fontFamily: 'Urbanist',
   },
   restrictionNotice: {
     position: 'absolute',

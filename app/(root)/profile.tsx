@@ -1,11 +1,11 @@
 import { apiGet } from '@/api';
 import { ThemedText } from '@/components/ThemedText';
-import { Stack } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, Text, View, Image, ScrollView, TouchableOpacity, RefreshControl, Animated } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Stack, router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Animated, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 interface UserProfile {
   _id: string;
@@ -96,6 +96,25 @@ export default function ProfileScreen() {
             fontFamily: 'Urbanist',
             fontWeight: '600',
           },
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={{
+                marginLeft: -8,
+                marginRight: 8,
+                padding: 8,
+                borderRadius: 20,
+                backgroundColor: 'transparent',
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons 
+                name="arrow-back" 
+                size={24} 
+                color={colors.text.primary} 
+              />
+            </TouchableOpacity>
+          ),
         }} 
       />
 

@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from '@/api';
+import { apiGet, apiPatch, apiPost } from '@/api';
 import { create } from 'zustand';
 
 // Course interfaces
@@ -738,36 +738,19 @@ const useCourseStore = create<CourseState>((set, get) => ({
         loading: false 
       }));
     } catch (error: any) {
-      console.log('API failed for video details:', error.message);
-      // Create dummy video data for fallback
-      const dummyVideoData = {
-        _id: videoId,
-        chapterId: '1',
-        createdAt: new Date().toISOString(),
-        courseId: '1',
-        duration: 600, // 10 minutes
-        videoTitle: 'Sample Video',
-        videoDescription: 'This is a sample video for demonstration purposes.',
-        videoThumbnail: 'https://via.placeholder.com/640x360/4ECDC4/FFFFFF?text=Video',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        questions: [],
-        isSubmitSingleEveryTime: false,
-        videoType: 'basic' as const,
-        videoResources: ['Sample Resource 1', 'Sample Resource 2'],
-        meta: {
-          videoType: 1,
-          timeToShowQuestion: '0'
-        }
-      };
+      console.error('❌ API Error - Failed to fetch video details:', {
+        videoId,
+        errorMessage: error.message,
+        errorCode: error.code || 'UNKNOWN',
+        apiEndpoint: `/video/student/video/${videoId}`,
+        timestamp: new Date().toISOString(),
+        stack: error.stack
+      });
       
-      set(state => ({ 
-        videoDetails: {
-          ...state.videoDetails,
-          [videoId]: dummyVideoData
-        },
+      set({ 
         loading: false,
-        error: 'Using sample data - API unavailable'
-      }));
+        error: `Failed to load video: ${error.message}. Please check your connection and try again.`
+      });
     }
   },
 
