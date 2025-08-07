@@ -288,6 +288,7 @@ export interface RequestConfig extends AxiosRequestConfig {
   cacheTTL?: number; // Time to live in milliseconds
   showLoader?: boolean;
   skipErrorHandling?: boolean;
+  metadata?: { requestStartTime?: number };
 }
 
 // Network state interface

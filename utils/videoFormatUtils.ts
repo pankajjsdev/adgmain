@@ -450,7 +450,7 @@ export const testVideoFormatUtils = async () => {
  * @param url - Video URL to validate
  * @returns validation result
  */
-export const validateVideoUrl = (url: string): { isValid: boolean; message: string } => {
+export const validateVideoUrlFromAPI = (url: string): { isValid: boolean; message: string } => {
   if (!url || typeof url !== 'string') {
     return { isValid: false, message: 'URL is required and must be a string' };
   }

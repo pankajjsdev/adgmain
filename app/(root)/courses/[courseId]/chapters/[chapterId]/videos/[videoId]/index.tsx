@@ -1137,6 +1137,7 @@ export default function VideoDetailScreen() {
             </View>
           ) : (
             <VideoPlayer
+              videoId={videoId || videoData._id}
               videoUrl={videoData.videoUrl}
               posterUrl={videoData.videoThumbnail}
               isPlaying={(() => {

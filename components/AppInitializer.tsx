@@ -62,24 +62,17 @@ export default function AppInitializer({ children }: AppInitializerProps) {
   // Initialize the app state
   useEffect(() => {
     const initializeApp = async () => {
-      // If splash is disabled, check onboarding directly
-      if (!clientConfig.splash?.enabled) {
-        await handleSplashComplete();
-      }
+      await handleSplashComplete();
     };
 
     initializeApp();
-  }, [clientConfig.splash?.enabled, handleSplashComplete]);
+  }, [handleSplashComplete]);
 
   // Render based on current initialization state
   if (!isReady) {
     switch (initState) {
       case 'splash':
-        if (clientConfig.splash?.enabled) {
-          return <SplashScreen onAnimationComplete={handleSplashComplete} />;
-        }
-        // If splash is disabled, fall through to next state
-        break;
+        return <SplashScreen onAnimationComplete={handleSplashComplete} />;
       
       case 'onboarding':
         if (clientConfig.onboarding?.enabled) {
