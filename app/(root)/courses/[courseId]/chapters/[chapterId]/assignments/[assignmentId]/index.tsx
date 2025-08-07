@@ -402,6 +402,9 @@ export default function AssignmentDetail() {
   const { assignment, submission } = assignmentDetail;
   const statusInfo = getStatusInfo(assignment.status);
   const levelColor = getLevelColor(assignment.level);
+  
+  // Create theme-aware styles
+  const styles = createStyles(currentTheme);
 
   // Tabs configuration
   const tabs = [
@@ -610,10 +613,11 @@ export default function AssignmentDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+// Create theme-aware styles function
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.background,
   },
   scrollContainer: {
     flex: 1,
@@ -622,12 +626,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     flex: 1,
     textAlign: 'center',
   },
@@ -639,7 +643,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.text,
   },
   errorContainer: {
     flex: 1,
@@ -666,12 +670,12 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
   },
   assignmentTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 8,
   },
   statusRow: {
@@ -706,9 +710,26 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     padding: 20,
     marginVertical: 8,
+    borderRadius: 12,
+    shadowColor: theme.colors.shadow || '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  tabContent: {
+    backgroundColor: theme.colors.card,
+    padding: 20,
+    margin: 16,
+    borderRadius: 12,
+    shadowColor: theme.colors.shadow || '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   explanationCard: {
     padding: 16,
@@ -755,34 +776,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 8,
+    backgroundColor: theme.colors.card,
+    borderRadius: 12,
+    shadowColor: theme.colors.shadow || '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
     marginBottom: 12,
   },
-
-  tabContent: {
-    backgroundColor: '#fff',
-    padding: 20,
-    margin: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: theme.colors.text,
     marginBottom: 16,
   },
   description: {
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.text,
     lineHeight: 24,
     marginBottom: 24,
   },
@@ -996,6 +1007,13 @@ const styles = StyleSheet.create({
   },
   actionSection: {
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
+    marginVertical: 8,
+    borderRadius: 12,
+    shadowColor: theme.colors.shadow || '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });

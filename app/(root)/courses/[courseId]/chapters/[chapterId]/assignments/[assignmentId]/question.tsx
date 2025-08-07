@@ -102,10 +102,13 @@ export default function AssignmentQuestion() {
     assignmentId: string;
   }>();
 
-  // Theme and global styles (currently unused but available for future styling)
-  // const { getCurrentTheme } = useThemeStore();
-  // const currentTheme = getCurrentTheme();
-  // const globalStyles = useGlobalStyles();
+  // Theme and global styles
+  const { getCurrentTheme } = useThemeStore();
+  const currentTheme = getCurrentTheme();
+  const globalStyles = useGlobalStyles();
+  
+  // Create theme-aware styles
+  const styles = createStyles(currentTheme);
 
   // State management
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
@@ -1236,10 +1239,10 @@ export default function AssignmentQuestion() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: theme.colors.background,
   },
   loadingContainer: {
     flex: 1,
@@ -1249,7 +1252,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: theme.colors.text,
   },
   errorContainer: {
     flex: 1,
@@ -1280,9 +1283,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: theme.colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: theme.colors.border || '#e0e0e0',
   },
   backBtn: {
     padding: 8,
