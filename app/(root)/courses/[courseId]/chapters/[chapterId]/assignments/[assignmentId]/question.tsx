@@ -444,6 +444,386 @@ export default function AssignmentQuestion() {
     return new Date() > new Date(assignment.endTime);
   };
 
+  // Progress Tracking Component (Item 2)
+  const ProgressIndicator = ({ current, total, answered }: { current: number, total: number, answered: number }) => {
+    const progressPercentage = total > 0 ? (answered / total) * 100 : 0;
+    return (
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBar}>
+            <View 
+              style={[styles.progressBarFill, { width: `${progressPercentage}%` }]} 
+            />
+          </View>
+          <Text style={styles.progressText}>{Math.round(progressPercentage)}%</Text>
+        </View>
+        <Text style={styles.progressText}>
+          Question {current + 1} of {total} • {answered} answered • {total - answered} remaining
+        </Text>
+      </View>
+    );
+  };
+
+  // Enhanced Timer Component (Item 5)
+  const SmartTimer = ({ timeRemaining }: { timeRemaining: number }) => {
+    const getTimerColor = () => {
+      if (timeRemaining < 300) return '#F44336'; // Red for < 5 min
+      if (timeRemaining < 900) return '#FF9800'; // Orange for < 15 min
+      return '#4CAF50'; // Green for normal
+    };
+
+    const getTimerIcon = () => {
+      if (timeRemaining < 300) return 'alarm-outline';
+      if (timeRemaining < 900) return 'time-outline';
+      return 'timer-outline';
+    };
+
+    return (
+      <View style={[styles.smartTimerContainer, { borderColor: getTimerColor() }]}>
+        <Ionicons name={getTimerIcon()} size={20} color={getTimerColor()} />
+        <Text style={[styles.smartTimerText, { color: getTimerColor() }]}>
+          {formatTime(timeRemaining)}
+        </Text>
+        {timeRemaining < 300 && (
+          <View style={styles.urgentIndicator}>
+            <Text style={styles.urgentText}>URGENT</Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  // Question Navigator Component (Item 3)
+  const QuestionNavigator = ({ questions, currentIndex, submissions, onQuestionSelect }: {
+    questions: QuestionData[],
+    currentIndex: number,
+    submissions: SubmissionItem[],
+    onQuestionSelect: (index: number) => void
+  }) => {
+    const getQuestionStatus = (questionId: string) => {
+      const submission = submissions.find(s => s.questionId === questionId);
+      if (!submission || submission.attemptStatus === '2') return 'unanswered';
+      return 'answered';
+    };
+
+    return (
+      <View style={styles.questionNavigator}>
+        <Text style={styles.navigatorTitle}>Questions</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.navigatorScroll}>
+          {questions.map((question, index) => {
+            const status = getQuestionStatus(question._id);
+            const isActive = index === currentIndex;
+            return (
+              <TouchableOpacity
+                key={question._id}
+                style={[
+                  styles.questionNavItem,
+                  isActive && styles.questionNavItemActive,
+                  status === 'answered' && styles.questionNavItemAnswered
+                ]}
+                onPress={() => onQuestionSelect(index)}
+              >
+                <Text style={[
+                  styles.questionNavText,
+                  isActive && styles.questionNavTextActive,
+                  status === 'answered' && styles.questionNavTextAnswered
+                ]}>
+                  {index + 1}
+                </Text>
+                {status === 'answered' && (
+                  <View style={styles.answeredIndicator}>
+                    <Ionicons name="checkmark" size={12} color="#fff" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // Enhanced Question Types Support (Item 4)
+  const EnhancedQuestionRenderer = ({ question, answer, onAnswerChange }: {
+    question: QuestionData,
+    answer: string,
+    onAnswerChange: (answer: string) => void
+  }) => {
+    switch (question.questionType) {
+      case 'scq':
+        return (
+          <MultipleChoiceQuestion 
+            question={question}
+            answer={answer}
+            onAnswerChange={onAnswerChange}
+          />
+        );
+      case 'text':
+        return (
+          <TextInputQuestion 
+            question={question}
+            answer={answer}
+            onAnswerChange={onAnswerChange}
+          />
+        );
+      default:
+        return (
+          <GenericQuestion 
+            question={question}
+            answer={answer}
+            onAnswerChange={onAnswerChange}
+          />
+        );
+    }
+  };
+
+  // Modern UI Components (Item 9)
+  const PrimaryButton = ({ title, onPress, icon, loading, style, textStyle }: {
+    title: string,
+    onPress: () => void,
+    icon?: string,
+    loading?: boolean,
+    style?: any,
+    textStyle?: any
+  }) => (
+    <TouchableOpacity 
+      style={[styles.primaryButton, loading && styles.buttonDisabled, style]}
+      onPress={onPress}
+      disabled={loading}
+      activeOpacity={0.8}
+    >
+      {loading ? (
+        <ActivityIndicator color="#fff" size="small" />
+      ) : (
+        <>
+          {icon && <Ionicons name={icon as any} size={20} color="#fff" style={styles.buttonIcon} />}
+          <Text style={[styles.primaryButtonText, textStyle]}>{title}</Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+
+  const SecondaryButton = ({ title, onPress, icon, loading, style, textStyle }: {
+    title: string,
+    onPress: () => void,
+    icon?: string,
+    loading?: boolean,
+    style?: any,
+    textStyle?: any
+  }) => (
+    <TouchableOpacity 
+      style={[styles.secondaryButton, loading && styles.buttonDisabled, style]}
+      onPress={onPress}
+      disabled={loading}
+      activeOpacity={0.8}
+    >
+      {loading ? (
+        <ActivityIndicator color="#007AFF" size="small" />
+      ) : (
+        <>
+          {icon && <Ionicons name={icon as any} size={20} color="#007AFF" style={styles.buttonIcon} />}
+          <Text style={[styles.secondaryButtonText, textStyle]}>{title}</Text>
+        </>
+      )}
+    </TouchableOpacity>
+  );
+
+  // Enhanced Question Components
+  const MultipleChoiceQuestion = ({ question, answer, onAnswerChange }: {
+    question: QuestionData,
+    answer: string,
+    onAnswerChange: (answer: string) => void
+  }) => (
+    <View style={styles.questionCard}>
+      <View style={styles.questionHeader}>
+        <View style={styles.questionBadge}>
+          <Text style={styles.questionBadgeText}>MULTIPLE CHOICE</Text>
+        </View>
+        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(question.questionLevel) }]}>
+          <Text style={styles.difficultyBadgeText}>{question.questionLevel.toUpperCase()}</Text>
+        </View>
+      </View>
+      
+      <View style={styles.questionContent}>
+        <Text style={styles.questionText}>{stripHtml(question.question.text)}</Text>
+        
+        <View style={styles.optionsContainer}>
+          {question.options?.map((option, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.optionButton,
+                answer === index.toString() && styles.optionButtonSelected
+              ]}
+              onPress={() => onAnswerChange(index.toString())}
+              accessibilityRole="button"
+              accessibilityLabel={`Option ${index + 1}: ${option.text}`}
+              accessibilityHint="Tap to select this answer"
+            >
+              <View style={[
+                styles.optionRadio,
+                answer === index.toString() && styles.optionRadioSelected
+              ]}>
+                {answer === index.toString() && (
+                  <View style={styles.optionRadioInner} />
+                )}
+              </View>
+              <Text style={[
+                styles.optionText,
+                answer === index.toString() && styles.optionTextSelected
+              ]}>
+                {option.text}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+
+  const TextInputQuestion = ({ question, answer, onAnswerChange }: {
+    question: QuestionData,
+    answer: string,
+    onAnswerChange: (answer: string) => void
+  }) => (
+    <View style={styles.questionCard}>
+      <View style={styles.questionHeader}>
+        <View style={styles.questionBadge}>
+          <Text style={styles.questionBadgeText}>TEXT INPUT</Text>
+        </View>
+        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(question.questionLevel) }]}>
+          <Text style={styles.difficultyBadgeText}>{question.questionLevel.toUpperCase()}</Text>
+        </View>
+      </View>
+      
+      <View style={styles.questionContent}>
+        <Text style={styles.questionText}>{stripHtml(question.question.text)}</Text>
+        
+        <View style={styles.textInputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={answer}
+            onChangeText={onAnswerChange}
+            placeholder="Enter your answer here..."
+            placeholderTextColor="#999"
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+          <View style={styles.textInputFooter}>
+            <Text style={styles.characterCount}>{answer.length} characters</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const GenericQuestion = ({ question, answer, onAnswerChange }: {
+    question: QuestionData,
+    answer: string,
+    onAnswerChange: (answer: string) => void
+  }) => (
+    <View style={styles.questionCard}>
+      <View style={styles.questionHeader}>
+        <View style={styles.questionBadge}>
+          <Text style={styles.questionBadgeText}>{question.questionType.toUpperCase()}</Text>
+        </View>
+        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(question.questionLevel) }]}>
+          <Text style={styles.difficultyBadgeText}>{question.questionLevel.toUpperCase()}</Text>
+        </View>
+      </View>
+      
+      <View style={styles.questionContent}>
+        <Text style={styles.questionText}>{stripHtml(question.question.text)}</Text>
+        <Text style={styles.questionTypeNotice}>Question type not fully supported yet.</Text>
+      </View>
+    </View>
+  );
+
+  // Helper function for difficulty colors
+  const getDifficultyColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'easy': return '#4CAF50';
+      case 'medium': return '#FF9800';
+      case 'hard': return '#F44336';
+      default: return '#9E9E9E';
+    }
+  };
+
+  // Interactive Elements (Item 8) - Haptic Feedback and Loading States
+  const triggerHapticFeedback = (type: 'light' | 'medium' | 'heavy' = 'light') => {
+    // Note: Haptic feedback would require expo-haptics import
+    // For now, we'll implement the structure for future integration
+    console.log(`Haptic feedback: ${type}`);
+  };
+
+  const handleAnswerChangeWithFeedback = (answer: string) => {
+    triggerHapticFeedback('light');
+    handleAnswerChange(answer);
+  };
+
+  const handleNavigationWithFeedback = (index: number) => {
+    triggerHapticFeedback('medium');
+    setCurrentQuestionIndex(index);
+  };
+
+  // Loading State Component
+  const LoadingState = ({ message = 'Loading...' }: { message?: string }) => (
+    <View style={styles.loadingStateContainer}>
+      <ActivityIndicator size="large" color="#007AFF" />
+      <Text style={styles.loadingStateText}>{message}</Text>
+    </View>
+  );
+
+  // Error State Component
+  const ErrorState = ({ message, onRetry }: { message: string, onRetry?: () => void }) => (
+    <View style={styles.errorStateContainer}>
+      <Ionicons name="alert-circle-outline" size={48} color="#F44336" />
+      <Text style={styles.errorStateTitle}>Something went wrong</Text>
+      <Text style={styles.errorStateMessage}>{message}</Text>
+      {onRetry && (
+        <PrimaryButton 
+          title="Try Again" 
+          onPress={onRetry} 
+          icon="refresh-outline"
+          style={styles.retryButton}
+        />
+      )}
+    </View>
+  );
+
+  // Better Visual Hierarchy (Item 6) - Card-based Layout Component
+  const Card = ({ children, style, elevated = true }: {
+    children: React.ReactNode,
+    style?: any,
+    elevated?: boolean
+  }) => (
+    <View style={[
+      styles.card,
+      elevated && styles.cardElevated,
+      style
+    ]}>
+      {children}
+    </View>
+  );
+
+  // Section Header Component for Better Visual Hierarchy
+  const SectionHeader = ({ title, subtitle, icon }: {
+    title: string,
+    subtitle?: string,
+    icon?: string
+  }) => (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderContent}>
+        {icon && <Ionicons name={icon as any} size={24} color="#007AFF" style={styles.sectionHeaderIcon} />}
+        <View>
+          <Text style={styles.sectionHeaderTitle}>{title}</Text>
+          {subtitle && <Text style={styles.sectionHeaderSubtitle}>{subtitle}</Text>}
+        </View>
+      </View>
+    </View>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -729,6 +1109,21 @@ export default function AssignmentQuestion() {
           </View>
         </View>
 
+        {/* Progress Tracking Component */}
+        <ProgressIndicator 
+          current={currentQuestionIndex + 1}
+          total={questions.length}
+          answered={answeredCount}
+        />
+
+        {/* Question Navigator Component */}
+        <QuestionNavigator 
+          questions={questions}
+          currentIndex={currentQuestionIndex}
+          submissions={submissions}
+          onQuestionSelect={(index) => setCurrentQuestionIndex(index)}
+        />
+
         {questionsLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007AFF" />
@@ -738,35 +1133,15 @@ export default function AssignmentQuestion() {
           <ScrollView style={styles.testContent} showsVerticalScrollIndicator={false}>
             {currentQuestion && (
               <View style={styles.questionContainer}>
-                {/* Question Card */}
-                <View style={styles.questionCard}>
-                  <View style={styles.questionHeader}>
-                    <View style={styles.questionBadge}>
-                      <Text style={styles.questionBadgeText}>
-                        {currentQuestion.questionType.toUpperCase()}
-                      </Text>
-                    </View>
-                    <View style={styles.difficultyBadge}>
-                      <Text style={styles.difficultyBadgeText}>
-                        {currentQuestion.questionLevel}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.questionText}>
-                    {stripHtml(currentQuestion.question.text)}
-                  </Text>
-                  
-                  {currentQuestion.question.image && (
-                    <View style={styles.questionImageContainer}>
-                      {/* Add image display logic here if needed */}
-                    </View>
-                  )}
-                </View>
+                {/* Enhanced Question Renderer */}
+                <EnhancedQuestionRenderer 
+                  question={currentQuestion}
+                  answer={currentSubmission?.answer || ''}
+                  onAnswerChange={handleAnswerChange}
+                />
 
                 {/* Answer Section */}
                 <View style={styles.answerSection}>
-                  <Text style={styles.answerSectionTitle}>Your Answer</Text>
                   
                   {currentQuestion.questionType === 'scq' && currentQuestion.options ? (
                     <View style={styles.optionsContainer}>
@@ -895,31 +1270,21 @@ export default function AssignmentQuestion() {
           </View>
           
           <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.saveButton]}
+            <SecondaryButton
+              title="Save Progress"
               onPress={saveProgress}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#4CAF50" />
-              ) : (
-                <Ionicons name="save-outline" size={20} color="#4CAF50" />
-              )}
-              <Text style={styles.saveButtonText}>Save Progress</Text>
-            </TouchableOpacity>
+              icon="save-outline"
+              loading={submitting}
+              style={{ flex: 1, marginRight: 8 }}
+            />
             
-            <TouchableOpacity
-              style={[styles.actionButton, styles.submitButton]}
+            <PrimaryButton
+              title="Submit Assignment"
               onPress={handleSubmitConfirmation}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-              )}
-              <Text style={styles.submitButtonText}>Submit Assignment</Text>
-            </TouchableOpacity>
+              icon="checkmark-circle-outline"
+              loading={submitting}
+              style={{ flex: 1, marginLeft: 8 }}
+            />
           </View>
         </View>
       </SafeAreaView>
@@ -1252,7 +1617,7 @@ const createStyles = (theme: any) => StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: theme.colors.text,
+    color: '#333',
   },
   errorContainer: {
     flex: 1,
@@ -1283,9 +1648,9 @@ const createStyles = (theme: any) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: theme.colors.card,
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border || '#e0e0e0',
+    borderBottomColor: '#e0e0e0',
   },
   backBtn: {
     padding: 8,
@@ -2088,6 +2453,7 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: '#fff',
     paddingTop: 8,
     paddingBottom: 16,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
     shadowColor: '#000',
@@ -2097,7 +2463,6 @@ const createStyles = (theme: any) => StyleSheet.create({
     elevation: 3,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
   },
   summaryHeaderContent: {
     flex: 1,
@@ -2317,11 +2682,11 @@ const createStyles = (theme: any) => StyleSheet.create({
   reviewButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     backgroundColor: '#fff3e0',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    alignSelf: 'flex-start',
   },
   reviewButtonText: {
     fontSize: 14,
@@ -2357,8 +2722,256 @@ const createStyles = (theme: any) => StyleSheet.create({
     backgroundColor: '#F44336',
   },
   finalSubmitButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     color: '#fff',
+  },
+  
+
+  
+  // Smart Timer Styles 
+  smartTimerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    shadowColor: theme.colors.shadow || '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  smartTimerText: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  urgentIndicator: {
+    backgroundColor: '#F44336',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 8,
+  },
+  urgentText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  
+  // Question Navigator Styles 
+  questionNavigator: {
+    backgroundColor: '#fff',
+    paddingVertical: 12,
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  navigatorTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  navigatorScroll: {
+    paddingHorizontal: 16,
+  },
+  questionNavItem: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    position: 'relative',
+  },
+  questionNavItemActive: {
+    backgroundColor: '#007AFF',
+  },
+  questionNavItemAnswered: {
+    backgroundColor: '#4CAF50',
+  },
+  questionNavText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  questionNavTextActive: {
+    color: '#fff',
+  },
+  questionNavTextAnswered: {
+    color: '#fff',
+  },
+  answeredIndicator: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#4CAF50',
+    borderRadius: 6,
+    width: 12,
+    height: 12,
+  },
+  
+  // Modern UI Components Styles
+  primaryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  primaryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: '#007AFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  
+  // Enhanced Question Components Styles
+  questionContent: {
+    padding: 16,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  optionButtonSelected: {
+    borderColor: '#007AFF',
+    backgroundColor: '#007AFF10',
+  },
+  textInputContainer: {
+    marginTop: 16,
+  },
+  textInputFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  questionTypeNotice: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  
+  // Interactive Elements Styles
+  loadingStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingStateText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+  },
+  errorStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  errorStateTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  errorStateMessage: {
+    fontSize: 16,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  retryButton: {
+    marginTop: 24,
+    minWidth: 120,
+  },
+  
+  // Better Visual Hierarchy Styles
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
+  },
+  cardElevated: {
+    shadowColor: theme.colors.shadow || '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  sectionHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionHeaderIcon: {
+    marginRight: 12,
+  },
+  sectionHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  sectionHeaderSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
   },
 });
