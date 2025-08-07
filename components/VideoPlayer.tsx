@@ -122,7 +122,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       player.muted = false;
       player.volume = volume;
       player.playbackRate = playbackSpeed;
-      console.log('✅ Player initialized successfully');
+      
+      // Apply buffer configuration based on video format for better performance
+      const bufferConfig = getBufferConfig(videoFormat);
+      player.bufferOptions = {
+        minBufferForPlayback: bufferConfig.minBufferMs / 1000, // Convert ms to seconds
+        preferredForwardBufferDuration: bufferConfig.maxBufferMs / 1000, // Convert ms to seconds
+        waitsToMinimizeStalling: true,
+      };
+      
+      console.log('✅ Player initialized successfully with buffer config:', bufferConfig);
     } catch (error) {
       console.error('❌ Failed to initialize player:', error);
     }

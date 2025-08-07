@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from '@/api';
+import { apiGet, apiPatch, apiPost, ApiResponse } from '@/api';
 import { create } from 'zustand';
 
 // Course interfaces
@@ -93,20 +93,43 @@ export interface Video {
 }
 
 export interface Assignment {
-  id: string;
+  // API response fields
+  _id: string;
+  assignmentDuration: string;
+  assignmentGrading: string;
+  assignmentName: string;
+  assignmentSolution: string;
+  assignmentType: string;
+  assignmentUIType: string;
   chapterId: string;
-  title: string;
-  description: string;
-  instructions: string;
-  dueDate?: string;
-  maxScore: number;
-  submissionType: 'text' | 'file' | 'both';
-  isSubmitted: boolean;
-  submittedAt?: string;
-  score?: number;
-  feedback?: string;
+  courseId: string;
+  endTime: string;
+  fileType?: {
+    askForExplaination: string;
+    explainationType: string;
+    isQuestionDownloadable: string;
+    question: string;
+    solution: string;
+  };
+  level: string;
+  questions: string[];
+  startTime: string;
+  status: number;
+  totalMarks: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Legacy fields (for backward compatibility)
+  id?: string;
+  title?: string;
+  description?: string;
+  instructions?: string;
+  dueDate?: string;
+  maxScore?: number;
+  submissionType?: 'text' | 'file' | 'both';
+  isSubmitted?: boolean;
+  score?: number;
+  feedback?: string;
 }
 
 export interface Test {
@@ -185,6 +208,9 @@ interface CourseState {
   currentAssignment: Assignment | null;
   assignmentsLoading: boolean;
   assignmentsError: string | null;
+  assignmentsPage: number;
+  assignmentsHasMore: boolean;
+  assignmentsRefreshing: boolean;
 
   // Tests
   tests: Test[];
@@ -219,9 +245,11 @@ interface CourseState {
   updateVideoProgress: (videoId: string, progress: any) => Promise<void>;
   submitVideoQuestion: (videoId: string, questionId: string, answer: string, questionData: any) => Promise<{ success: boolean; data: any }>;
   
-  fetchAssignments: (chapterId: string) => Promise<void>;
+  fetchAssignments: (chapterId: string, refresh?: boolean) => Promise<void>;
+  refreshAssignments: (chapterId: string) => Promise<void>;
+  loadMoreAssignments: (chapterId: string) => Promise<void>;
   fetchAssignment: (assignmentId: string) => Promise<void>;
-  submitAssignment: (assignmentId: string, submission: any) => Promise<void>;
+  submitAssignment: (assignmentId: string, submissionData: any) => Promise<void>;
   
   fetchTests: (chapterId: string) => Promise<void>;
   fetchTest: (testId: string) => Promise<void>;
@@ -445,6 +473,9 @@ const useCourseStore = create<CourseState>((set, get) => ({
   currentAssignment: null,
   assignmentsLoading: false,
   assignmentsError: null,
+  assignmentsPage: 0,
+  assignmentsHasMore: true,
+  assignmentsRefreshing: false,
 
   tests: [],
   currentTest: null,
@@ -926,36 +957,126 @@ const useCourseStore = create<CourseState>((set, get) => ({
   },
 
   // Assignment actions
-  fetchAssignments: async (chapterId: string) => {
-    set({ assignmentsLoading: true, assignmentsError: null });
+  fetchAssignments: async (chapterId: string, refresh = false) => {
+    const state = get();
+    
+    // Don't fetch if already loading (unless refreshing)
+    if (state.assignmentsLoading && !refresh) {
+      return;
+    }
+    
+    const page = refresh ? 0 : state.assignmentsPage || 0;
+    const limit = 100; // Using 100 as per your API example
+    const skip = page * limit;
+    
+    set({ 
+      assignmentsLoading: true, 
+      assignmentsError: null,
+      assignmentsRefreshing: refresh 
+    });
+    
     try {
-      const response = await apiGet<Assignment[]>(`/assignment/student/assignments?chapterId=${chapterId}`);
+      const response = await apiGet<ApiResponse<Assignment[]>>(`/assignment/student/assignments?chapterId=${chapterId}&limit=${limit}&skip=${skip}&order=asc&status=1`);
+      
+      // Handle nested response structure
+      const assignmentsData = response.data?.data || response.data || [];
+      
+      console.log('📝 Assignments API Response:', {
+        chapterId,
+        totalReceived: assignmentsData.length,
+        page,
+        skip,
+        limit,
+        isRefresh: refresh
+      });
+      
+      // Map API response to Assignment interface
+      const mappedAssignments: Assignment[] = assignmentsData.map((assignment: any) => ({
+        // API fields
+        _id: assignment._id,
+        assignmentDuration: assignment.assignmentDuration,
+        assignmentGrading: assignment.assignmentGrading,
+        assignmentName: assignment.assignmentName,
+        assignmentSolution: assignment.assignmentSolution,
+        assignmentType: assignment.assignmentType,
+        assignmentUIType: assignment.assignmentUIType,
+        chapterId: assignment.chapterId,
+        courseId: assignment.courseId,
+        endTime: assignment.endTime,
+        fileType: assignment.fileType,
+        level: assignment.level,
+        questions: assignment.questions,
+        startTime: assignment.startTime,
+        status: assignment.status,
+        totalMarks: assignment.totalMarks,
+        createdAt: assignment.createdAt,
+        
+        // Legacy fields for backward compatibility
+        id: assignment._id,
+        title: assignment.assignmentName,
+        description: assignment.assignmentDescription || '',
+        instructions: assignment.assignmentInstructions || '',
+        dueDate: assignment.endTime,
+        maxScore: parseInt(assignment.totalMarks) || 0,
+        submissionType: 'text', // Default value
+        isSubmitted: false, // This should come from submission API
+        updatedAt: assignment.updatedAt || assignment.createdAt,
+      }));
+      
       set({ 
-        assignments: response.data,
-        assignmentsLoading: false 
+        assignments: refresh ? mappedAssignments : [...state.assignments, ...mappedAssignments],
+        assignmentsPage: page + 1,
+        assignmentsHasMore: assignmentsData.length === limit, // Has more if we got a full page
+        assignmentsLoading: false,
+        assignmentsRefreshing: false
       });
     } catch (error: any) {
-      console.log('API failed, using dummy data for assignments:', error.message);
+      console.error('❌ Failed to fetch assignments:', error);
+      // Fallback to dummy data on error
       const dummyAssignments: Assignment[] = [
         {
+          _id: '1',
           id: '1',
           chapterId,
+          courseId: 'course1',
+          assignmentName: 'Practice Assignment',
+          assignmentType: 'practice',
+          assignmentUIType: 'default',
+          assignmentDuration: '60',
+          assignmentGrading: 'manual',
+          assignmentSolution: '',
+          startTime: '2024-01-01T00:00:00Z',
+          endTime: '2024-12-31T23:59:59Z',
+          level: 'beginner',
+          questions: [],
+          status: 1,
+          totalMarks: '100',
+          createdAt: '2024-01-01T00:00:00Z',
           title: 'Practice Assignment',
           description: 'Complete the exercises',
           instructions: 'Follow the instructions carefully',
+          dueDate: '2024-12-31T23:59:59Z',
           maxScore: 100,
           submissionType: 'text',
           isSubmitted: false,
-          createdAt: '2024-01-01T00:00:00Z',
           updatedAt: '2024-01-01T00:00:00Z',
         },
       ];
       set({ 
-        assignments: dummyAssignments,
+        assignments: refresh ? dummyAssignments : [...state.assignments, ...dummyAssignments],
         assignmentsLoading: false,
-        assignmentsError: null
+        assignmentsRefreshing: false,
+        assignmentsError: null // Don't show error if we have fallback data
       });
     }
+  },
+
+  refreshAssignments: async (chapterId: string) => {
+    await get().fetchAssignments(chapterId, true);
+  },
+
+  loadMoreAssignments: async (chapterId: string) => {
+    await get().fetchAssignments(chapterId, false);
   },
 
   fetchAssignment: async (assignmentId: string) => {
@@ -1187,6 +1308,9 @@ const useCourseStore = create<CourseState>((set, get) => ({
       currentAssignment: null,
       assignmentsLoading: false,
       assignmentsError: null,
+      assignmentsPage: 0,
+      assignmentsHasMore: true,
+      assignmentsRefreshing: false,
       tests: [],
       currentTest: null,
       testsLoading: false,

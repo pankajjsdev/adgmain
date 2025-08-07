@@ -1,268 +1,501 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { apiGet } from '@/api';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import useThemeStore from '@/store/themeStore';
 
-// Dummy assignment details data
-const assignmentDetailsData = {
-  '1': {
-    '1': {
-      '1': {
-        id: '1',
-        title: 'Build a Simple Calculator App',
-        description: 'Create a basic calculator app using React Native components. The app should have a clean interface with buttons for numbers (0-9) and operations (+, -, *, /). Implement proper state management and handle edge cases like division by zero.',
-        submissionDate: '2024-08-15',
-        attachmentLink: 'https://example.com/assignment1.pdf',
-        status: 'submitted',
-        score: 85,
-        maxScore: 100,
-        dueDate: '2024-08-10',
-        requirements: [
-          'Use React Native functional components with hooks',
-          'Implement proper state management for calculator operations',
-          'Handle edge cases (division by zero, invalid operations)',
-          'Create a clean and intuitive user interface',
-          'Add proper error handling and validation',
-          'Include comments in your code explaining key functionality'
-        ],
-        submissionInstructions: 'Submit your completed React Native project as a ZIP file. Include all source code, package.json, and a README file with setup instructions.',
-        rubric: [
-          { criteria: 'Functionality', points: 40, description: 'Calculator performs all basic operations correctly' },
-          { criteria: 'Code Quality', points: 25, description: 'Clean, well-structured, and commented code' },
-          { criteria: 'UI/UX Design', points: 20, description: 'Intuitive and visually appealing interface' },
-          { criteria: 'Error Handling', points: 15, description: 'Proper handling of edge cases and errors' }
-        ],
-        feedback: 'Great work on the calculator app! Your implementation is solid and handles most edge cases well. The UI is clean and intuitive. Consider adding more advanced operations for extra credit.',
-      },
-      '2': {
-        id: '2',
-        title: 'Component Styling Exercise',
-        description: 'Style React Native components using StyleSheet. Create a profile card component that displays user information with proper layout and styling.',
-        submissionDate: null,
-        attachmentLink: 'https://example.com/assignment2.pdf',
-        status: 'pending',
-        score: null,
-        maxScore: 100,
-        dueDate: '2024-08-20',
-        requirements: [
-          'Create a reusable ProfileCard component',
-          'Use StyleSheet for all styling (no inline styles)',
-          'Implement responsive design principles',
-          'Include user avatar, name, bio, and contact information',
-          'Add proper spacing and typography',
-          'Use appropriate colors and visual hierarchy'
-        ],
-        submissionInstructions: 'Submit your ProfileCard component file along with a demo screen showing the component in use.',
-        rubric: [
-          { criteria: 'Component Structure', points: 30, description: 'Well-structured and reusable component' },
-          { criteria: 'Styling Implementation', points: 35, description: 'Proper use of StyleSheet and responsive design' },
-          { criteria: 'Visual Design', points: 25, description: 'Attractive and professional appearance' },
-          { criteria: 'Code Organization', points: 10, description: 'Clean and organized code structure' }
-        ],
-        feedback: null,
-      },
-    }
-  }
-};
+interface AssignmentDetail {
+  assignmentDuration: string;
+  assignmentGrading: string;
+  assignmentName: string;
+  assignmentSolution: string;
+  assignmentType: string;
+  assignmentUIType: string;
+  chapterId: string;
+  courseId: string;
+  endTime: string;
+  fileType?: {
+    askForExplaination: string;
+    explainationType: string;
+    isQuestionDownloadable: string;
+    question: string;
+    solution: string;
+  };
+  level: string;
+  questions: any[];
+  startTime: string;
+  status: number;
+  totalMarks: string;
+  description?: string;
+  requirements?: string[];
+  submissionInstructions?: string;
+  rubric?: RubricItem[];
+  maxScore?: number;
+}
 
-export default function AssignmentDetails() {
-  const { courseId, chapterId, assignmentId } = useLocalSearchParams<{ 
-    courseId: string; 
-    chapterId: string; 
-    assignmentId: string; 
+interface RubricItem {
+  criteria: string;
+  points: number;
+  description: string;
+}
+
+interface AssignmentSubmission {
+  _id: string;
+  assignmentId: string;
+  courseId: string;
+  createdAt: string;
+  isSubmitted: string;
+  score: number;
+  status: number;
+  submission: any;
+  updatedAt: string;
+  userId: string;
+  vendorCode: string;
+}
+
+interface AssignmentDetailResponse {
+  assignment: AssignmentDetail;
+  submission: AssignmentSubmission;
+}
+
+export default function AssignmentDetail() {
+  const router = useRouter();
+  const { courseId, chapterId, assignmentId } = useLocalSearchParams<{
+    courseId: string;
+    chapterId: string;
+    assignmentId: string;
   }>();
-  
+
+  // Store hooks
+  const { getCurrentTheme } = useThemeStore();
+  const currentTheme = getCurrentTheme();
+  const globalStyles = useGlobalStyles();
+
+  // Local state
+  const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetailResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('details');
-  
-  const assignment = assignmentDetailsData[courseId as keyof typeof assignmentDetailsData]
-    ?.[chapterId as keyof typeof assignmentDetailsData['1']]
-    ?.[assignmentId as keyof typeof assignmentDetailsData['1']['1']];
 
-  if (!assignment) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.errorText}>Assignment not found</Text>
-      </SafeAreaView>
-    );
-  }
+  // Fetch assignment details on mount
+  useEffect(() => {
+    if (assignmentId) {
+      fetchAssignmentDetails();
+    }
+  }, [assignmentId]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return '#4CAF50';
-      case 'pending':
-        return '#FF9800';
-      case 'overdue':
-        return '#F44336';
-      default:
-        return '#666';
+  const fetchAssignmentDetails = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await apiGet<AssignmentDetailResponse>(`/assignment/student/assignment/${assignmentId}`);
+      
+      if (response.data) {
+        setAssignmentDetail(response.data);
+      } else {
+        setError('Failed to load assignment details');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load assignment details');
+    } finally {
+      setLoading(false);
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
-  const handleSubmission = () => {
+  const getTimeRemaining = (endTime: string) => {
+    const end = new Date(endTime);
+    const now = new Date();
+    const diff = end.getTime() - now.getTime();
+    
+    if (diff <= 0) return 'Time expired';
+    
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    if (days > 0) return `${days} day${days !== 1 ? 's' : ''} remaining`;
+    if (hours > 0) return `${hours} hour${hours !== 1 ? 's' : ''} remaining`;
+    return `${minutes} minute${minutes !== 1 ? 's' : ''} remaining`;
+  };
+
+  const getStatusInfo = (status: number) => {
+    switch (status) {
+      case 0: return { text: 'Not Started', color: '#999' };
+      case 1: return { text: 'In Progress', color: '#FFA500' };
+      case 2: return { text: 'Submitted', color: '#4CAF50' };
+      default: return { text: 'Unknown', color: '#999' };
+    }
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'beginner': return '#2196F3';
+      case 'intermediate': return '#FF9800';
+      case 'advanced': return '#F44336';
+      default: return '#999';
+    }
+  };
+
+  const handleDownloadFile = async (url: string, fileName: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open file URL');
+      }
+    } catch (err) {
+      Alert.alert('Error', 'Failed to download file');
+    }
+  };
+
+  const handleSubmitAssignment = () => {
     Alert.alert(
       'Submit Assignment',
-      'Are you ready to submit your assignment?',
+      'Are you sure you want to submit this assignment?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Submit', onPress: () => Alert.alert('Success', 'Assignment submitted successfully!') }
+        { text: 'Submit', onPress: () => console.log('Assignment submitted') }
       ]
     );
   };
 
-  const tabs = [
-    { id: 'details', title: 'Details', icon: 'information-circle-outline' },
-    { id: 'rubric', title: 'Rubric', icon: 'list-outline' },
-    { id: 'submission', title: 'Submission', icon: 'cloud-upload-outline' },
-  ];
+  const renderLoading = () => (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Assignment Details</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading assignment details...</Text>
+      </View>
+    </SafeAreaView>
+  );
+
+  const renderError = () => (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Assignment Details</Text>
+        <View style={{ width: 24 }} />
+      </View>
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchAssignmentDetails}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+
+  const renderDetailsTab = (assignment: AssignmentDetail) => (
+    <View style={styles.tabContent}>
+      <Text style={styles.sectionTitle}>Description</Text>
+      <Text style={styles.description}>
+        {assignment.description || 'No description available for this assignment.'}
+      </Text>
+      
+      {assignment.requirements && assignment.requirements.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Requirements</Text>
+          {assignment.requirements.map((req, index) => (
+            <View key={index} style={styles.requirementItem}>
+              <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+              <Text style={styles.requirementText}>{req}</Text>
+            </View>
+          ))}
+        </>
+      )}
+      
+      {assignment.submissionInstructions && (
+        <>
+          <Text style={styles.sectionTitle}>Submission Instructions</Text>
+          <Text style={styles.instructionsText}>{assignment.submissionInstructions}</Text>
+        </>
+      )}
+    </View>
+  );
+
+  const renderRubricTab = (assignment: AssignmentDetail) => (
+    <View style={styles.tabContent}>
+      {assignment.rubric && assignment.rubric.length > 0 ? (
+        <>
+          {assignment.rubric.map((item, index) => (
+            <View key={index} style={styles.rubricItem}>
+              <View style={styles.rubricHeader}>
+                <Text style={styles.rubricCriteria}>{item.criteria}</Text>
+                <Text style={styles.rubricPoints}>{item.points} points</Text>
+              </View>
+              <Text style={styles.rubricDescription}>{item.description}</Text>
+            </View>
+          ))}
+          {assignment.maxScore && (
+            <View style={styles.totalPoints}>
+              <Text style={styles.totalText}>Total Points: {assignment.maxScore}</Text>
+            </View>
+          )}
+        </>
+      ) : (
+        <Text>No rubric available for this assignment.</Text>
+      )}
+    </View>
+  );
+
+  const renderSubmissionTab = (assignment: AssignmentDetail, submission: AssignmentSubmission) => (
+    <View style={styles.tabContent}>
+      {submission.isSubmitted === 'true' ? (
+        <>
+          <View style={styles.submissionStatus}>
+            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+            <Text style={styles.submittedText}>Assignment Submitted</Text>
+          </View>
+          <Text style={styles.submissionDate}>
+            Submitted on: {formatDate(submission.createdAt)}
+          </Text>
+          
+          {submission.score !== undefined && assignment.maxScore && (
+            <View style={styles.scoreContainer}>
+              <Text style={styles.scoreText}>
+                Score: {submission.score} / {assignment.maxScore} 
+                ({Math.round((submission.score / assignment.maxScore) * 100)}%)
+              </Text>
+              <View style={styles.scoreBar}>
+                <View 
+                  style={[
+                    styles.scoreFill, 
+                    { width: `${(submission.score / assignment.maxScore) * 100}%` }
+                  ]} 
+                />
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.feedbackContainer}>
+            <Text style={styles.sectionTitle}>Instructor Feedback</Text>
+            <Text style={styles.feedbackText}>
+              {submission.submission?.feedback || 'No feedback available yet.'}
+            </Text>
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.submissionNote}>
+            Please upload your assignment files or enter your submission below.
+          </Text>
+          
+          <TouchableOpacity style={styles.uploadButton}>
+            <Ionicons name="cloud-upload-outline" size={24} color="#007AFF" />
+            <Text style={styles.uploadText}>Upload Files</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.submitButton} 
+            onPress={handleSubmitAssignment}
+          >
+            <Text style={styles.submitButtonText}>Submit Assignment</Text>
+          </TouchableOpacity>
+        </>
+      )}
+    </View>
+  );
 
   const renderTabContent = () => {
+    if (!assignmentDetail) return null;
+    
+    const { assignment, submission } = assignmentDetail;
+    
     switch (activeTab) {
       case 'details':
-        return (
-          <View style={styles.tabContent}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.description}>{assignment.description}</Text>
-            
-            <Text style={styles.sectionTitle}>Requirements</Text>
-            {assignment.requirements.map((req, index) => (
-              <View key={index} style={styles.requirementItem}>
-                <Ionicons name="checkmark-circle-outline" size={16} color="#4CAF50" />
-                <Text style={styles.requirementText}>{req}</Text>
-              </View>
-            ))}
-
-            <Text style={styles.sectionTitle}>Submission Instructions</Text>
-            <Text style={styles.instructionsText}>{assignment.submissionInstructions}</Text>
-          </View>
-        );
-      
+        return renderDetailsTab(assignment);
       case 'rubric':
-        return (
-          <View style={styles.tabContent}>
-            <Text style={styles.sectionTitle}>Grading Rubric</Text>
-            {assignment.rubric.map((item, index) => (
-              <View key={index} style={styles.rubricItem}>
-                <View style={styles.rubricHeader}>
-                  <Text style={styles.rubricCriteria}>{item.criteria}</Text>
-                  <Text style={styles.rubricPoints}>{item.points} pts</Text>
-                </View>
-                <Text style={styles.rubricDescription}>{item.description}</Text>
-              </View>
-            ))}
-            <View style={styles.totalPoints}>
-              <Text style={styles.totalText}>Total: {assignment.maxScore} points</Text>
-            </View>
-          </View>
-        );
-      
+        return renderRubricTab(assignment);
       case 'submission':
-        return (
-          <View style={styles.tabContent}>
-            {assignment.status === 'submitted' ? (
-              <View>
-                <Text style={styles.sectionTitle}>Submission Status</Text>
-                <View style={styles.submissionStatus}>
-                  <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                  <Text style={styles.submittedText}>Assignment Submitted</Text>
-                </View>
-                <Text style={styles.submissionDate}>
-                  Submitted on: {formatDate(assignment.submissionDate!)}
-                </Text>
-                
-                {assignment.score !== null && (
-                  <View style={styles.scoreContainer}>
-                    <Text style={styles.scoreText}>
-                      Score: {assignment.score}/{assignment.maxScore}
-                    </Text>
-                    <View style={styles.scoreBar}>
-                      <View 
-                        style={[
-                          styles.scoreFill, 
-                          { width: `${(assignment.score / assignment.maxScore) * 100}%` }
-                        ]} 
-                      />
-                    </View>
-                  </View>
-                )}
-
-                {assignment.feedback && (
-                  <View style={styles.feedbackContainer}>
-                    <Text style={styles.sectionTitle}>Instructor Feedback</Text>
-                    <Text style={styles.feedbackText}>{assignment.feedback}</Text>
-                  </View>
-                )}
-              </View>
-            ) : (
-              <View>
-                <Text style={styles.sectionTitle}>Submit Assignment</Text>
-                <Text style={styles.submissionNote}>
-                  Due: {formatDate(assignment.dueDate)}
-                </Text>
-                
-                <TouchableOpacity style={styles.uploadButton}>
-                  <Ionicons name="cloud-upload-outline" size={24} color="#007AFF" />
-                  <Text style={styles.uploadText}>Choose File to Upload</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmission}>
-                  <Text style={styles.submitButtonText}>Submit Assignment</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        );
-      
+        return renderSubmissionTab(assignment, submission);
       default:
         return null;
     }
   };
 
+  if (loading) return renderLoading();
+  if (error) return renderError();
+  if (!assignmentDetail) return null;
+
+  const { assignment, submission } = assignmentDetail;
+  const statusInfo = getStatusInfo(assignment.status);
+  const levelColor = getLevelColor(assignment.level);
+
+  // Tabs configuration
+  const tabs = [
+    { id: 'details', title: 'Details', icon: 'document-text-outline' },
+    { id: 'rubric', title: 'Rubric', icon: 'list-outline' },
+    { id: 'submission', title: 'Submission', icon: 'send-outline' },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-        {/* Header */}
+      <ScrollView style={styles.scrollContainer}>
         <View style={styles.header}>
-          <Text style={styles.assignmentTitle}>{assignment.title}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(assignment.status) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(assignment.status) }]}>
-              {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
-            </Text>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Assignment Details</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        <View style={styles.titleSection}>
+          <Text style={styles.assignmentTitle}>{assignment.assignmentName}</Text>
+          
+          <View style={styles.statusRow}>
+            <View style={[styles.statusBadge, { backgroundColor: `${statusInfo.color}20` }]}>
+              <Ionicons name="checkmark-circle" size={16} color={statusInfo.color} />
+              <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.text}</Text>
+            </View>
+            <View style={styles.levelBadge}>
+              <Ionicons name="school-outline" size={16} color={levelColor} />
+              <Text style={[styles.levelText, { color: levelColor }]}>{assignment.level.charAt(0).toUpperCase() + assignment.level.slice(1)}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabsContainer}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-              onPress={() => setActiveTab(tab.id)}
-            >
+        {assignment.fileType && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Files & Resources</Text>
+            
+            {/* Question File */}
+            {assignment.fileType.question && (
+              <TouchableOpacity 
+                style={styles.fileCard}
+                onPress={() => handleDownloadFile(assignment.fileType!.question, 'Assignment Question')}
+              >
+                <View style={styles.fileInfo}>
+                  <Ionicons name="document-outline" size={24} color="#007AFF" />
+                  <View style={styles.fileDetails}>
+                    <Text style={styles.fileName}>Assignment Question</Text>
+                    <Text style={styles.fileDescription}>PDF Document • Downloadable</Text>
+                  </View>
+                </View>
+                <Ionicons name="download-outline" size={20} color="#007AFF" />
+              </TouchableOpacity>
+            )}
+
+            {/* Solution File (if available) */}
+            {assignment.fileType.solution && assignment.assignmentSolution === 'true' && submission.isSubmitted === 'true' && (
+              <TouchableOpacity 
+                style={styles.fileCard}
+                onPress={() => handleDownloadFile(assignment.fileType!.solution, 'Assignment Solution')}
+              >
+                <View style={styles.fileInfo}>
+                  <Ionicons name="bulb-outline" size={24} color="#4CAF50" />
+                  <View style={styles.fileDetails}>
+                    <Text style={styles.fileName}>Assignment Solution</Text>
+                    <Text style={styles.fileDescription}>PDF Document • Available after submission</Text>
+                  </View>
+                </View>
+                <Ionicons name="download-outline" size={20} color="#4CAF50" />
+              </TouchableOpacity>
+            )}
+
+            {/* Explanation Requirements */}
+            {assignment.fileType.askForExplaination === 'yes' && (
+              <View style={styles.explanationCard}>
+                <View style={styles.explanationHeader}>
+                  <Ionicons name="chatbubble-outline" size={20} color="#FF9800" />
+                  <Text style={styles.explanationTitle}>Explanation Required</Text>
+                </View>
+                <Text style={styles.explanationText}>
+                  You need to provide an explanation with your submission.
+                  {assignment.fileType.explainationType && (
+                    ` Format: ${assignment.fileType.explainationType}`
+                  )}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Submission Status */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Submission Status</Text>
+          <View style={styles.submissionCard}>
+            <View style={styles.submissionHeader}>
               <Ionicons 
-                name={tab.icon as any} 
-                size={20} 
-                color={activeTab === tab.id ? '#007AFF' : '#666'} 
+                name={submission.isSubmitted === 'true' ? 'checkmark-circle' : 'time'} 
+                size={24} 
+                color={submission.isSubmitted === 'true' ? '#4CAF50' : '#FF9800'} 
               />
-              <Text style={[styles.tabText, activeTab === tab.id && styles.activeTabText]}>
-                {tab.title}
+              <Text style={styles.submissionStatus}>
+                {submission.isSubmitted === 'true' ? 'Submitted' : 'Not Submitted'}
               </Text>
-            </TouchableOpacity>
-          ))}
+            </View>
+            
+            {submission.isSubmitted === 'true' ? (
+              <View style={styles.submissionDetails}>
+                <Text style={styles.submissionText}>Submitted on: {formatDate(submission.updatedAt)}</Text>
+                <Text style={styles.submissionText}>Score: {submission.score}/{assignment.totalMarks}</Text>
+                {submission.score > 0 && (
+                  <Text style={styles.submissionText}>
+                    Percentage: {Math.round((submission.score / parseInt(assignment.totalMarks)) * 100)}%
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.submissionDetails}>
+                <Text style={styles.submissionText}>Ready to submit your assignment?</Text>
+                <Text style={styles.submissionSubtext}>
+                  Make sure to review all requirements before submitting.
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
 
-        {/* Tab Content */}
-        {renderTabContent()}
+        {/* Action Buttons */}
+        <View style={styles.actionSection}>
+          {submission.isSubmitted === 'false' && new Date() <= new Date(assignment.endTime) && (
+            <>
+              <TouchableOpacity 
+                style={styles.startButton} 
+                onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${assignmentId}/question`)}
+              >
+                <Ionicons name="play-circle-outline" size={20} color="#fff" />
+                <Text style={styles.startButtonText}>Start Assignment</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.submitButton} onPress={handleSubmitAssignment}>
+                <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+                <Text style={styles.submitButtonText}>Submit Assignment</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          
+          {submission.isSubmitted === 'true' && (
+            <TouchableOpacity style={styles.viewSubmissionButton}>
+              <Ionicons name="eye-outline" size={20} color="#007AFF" />
+              <Text style={styles.viewSubmissionButtonText}>View Submission</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -273,57 +506,151 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  scrollContainer: {
+    flex: 1,
+  },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ff3b30',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  titleSection: {
     padding: 20,
     backgroundColor: '#fff',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
   },
   assignmentTitle: {
-    flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginRight: 16,
+    marginBottom: 8,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    marginTop: 16,
   },
   statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    marginRight: 12,
   },
   statusText: {
+    marginLeft: 6,
     fontSize: 14,
     fontWeight: '600',
   },
-  tabsContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  tab: {
-    flex: 1,
+  levelBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#f0f0f0',
   },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
+  levelText: {
+    marginLeft: 6,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
   },
-  tabText: {
+  section: {
+    backgroundColor: '#fff',
+    padding: 20,
+    marginVertical: 8,
+  },
+  explanationCard: {
+    padding: 16,
+    backgroundColor: '#fff3e0',
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  explanationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  explanationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
     marginLeft: 8,
+  },
+  explanationText: {
     fontSize: 14,
     color: '#666',
-    fontWeight: '500',
+    lineHeight: 20,
   },
-  activeTabText: {
-    color: '#007AFF',
+  fileInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  fileDetails: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  fileName: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#333',
   },
+  fileDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  fileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+
   tabContent: {
     backgroundColor: '#fff',
     padding: 20,
@@ -405,6 +732,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
+  submissionCard: {
+    padding: 16,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  submissionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  submissionDetails: {
+    padding: 8,
+  },
+  submissionText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  submissionSubtext: {
+    fontSize: 14,
+    color: '#999',
+  },
   totalText: {
     fontSize: 18,
     fontWeight: '600',
@@ -472,9 +822,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 2,
     borderColor: '#007AFF',
-    borderStyle: 'dashed',
     borderRadius: 8,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   uploadText: {
     fontSize: 16,
@@ -482,21 +831,47 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: '500',
   },
+  startButton: {
+    backgroundColor: '#4CAF50',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  startButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   submitButton: {
     backgroundColor: '#007AFF',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
+    marginBottom: 12,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
-  errorText: {
+  viewSubmissionButton: {
+    padding: 16,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  viewSubmissionButtonText: {
+    color: '#007AFF',
     fontSize: 18,
-    color: '#ff0000',
-    textAlign: 'center',
-    marginTop: 50,
+    fontWeight: '600',
+  },
+  actionSection: {
+    padding: 20,
+    backgroundColor: '#fff',
   },
 });
