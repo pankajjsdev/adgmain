@@ -1,38 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-
-// Dummy assignment data
-const assignmentData = {
-  '1': {
-    '1': [
-      {
-        id: '1',
-        title: 'Build a Simple Calculator App',
-        description: 'Create a basic calculator app using React Native components. Implement addition, subtraction, multiplication, and division operations.',
-        submissionDate: '2024-08-15',
-        attachmentLink: 'https://example.com/assignment1.pdf',
-        status: 'submitted',
-        score: 85,
-        maxScore: 100,
-        dueDate: '2024-08-10',
-      },
-      {
-        id: '2',
-        title: 'Component Styling Exercise',
-        description: 'Style React Native components using StyleSheet. Create a profile card with proper layout and styling.',
-        submissionDate: null,
-        attachmentLink: 'https://example.com/assignment2.pdf',
-        status: 'pending',
-        score: null,
-        maxScore: 100,
-        dueDate: '2024-08-20',
-      },
-    ]
-  }
-};
+import useCourseStore from '@/store/courseStore';
+import { useGlobalStyles } from '@/hooks/useGlobalStyles';
+import useThemeStore from '@/store/themeStore';
 
 export default function AssignmentList() {
   const router = useRouter();
@@ -41,7 +14,50 @@ export default function AssignmentList() {
     chapterId: string; 
   }>();
   
-  const assignments = assignmentData[courseId as keyof typeof assignmentData]?.[chapterId as keyof typeof assignmentData['1']] || [];
+  // Store hooks
+  const { 
+    assignments, 
+    assignmentsLoading, 
+    assignmentsError, 
+    assignmentsRefreshing,
+    assignmentsHasMore,
+    fetchAssignments,
+    refreshAssignments,
+    loadMoreAssignments 
+  } = useCourseStore();
+  
+  const { getCurrentTheme } = useThemeStore();
+  const currentTheme = getCurrentTheme();
+  const globalStyles = useGlobalStyles();
+  
+  // Local state for pagination
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
+  // Fetch assignments on component mount
+  useEffect(() => {
+    if (chapterId) {
+      fetchAssignments(chapterId, true); // Refresh on mount
+    }
+  }, [chapterId, fetchAssignments]);
+  
+  // Handle refresh
+  const handleRefresh = async () => {
+    if (chapterId) {
+      await refreshAssignments(chapterId);
+    }
+  };
+  
+  // Handle load more
+  const handleLoadMore = async () => {
+    if (assignmentsHasMore && !assignmentsLoading && !isLoadingMore && chapterId) {
+      setIsLoadingMore(true);
+      try {
+        await loadMoreAssignments(chapterId);
+      } finally {
+        setIsLoadingMore(false);
+      }
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -78,76 +94,161 @@ export default function AssignmentList() {
     });
   };
 
-  const renderAssignment = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.assignmentCard}
-      onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${item.id}`)}
-    >
-      <View style={styles.assignmentHeader}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.assignmentTitle} numberOfLines={2}>{item.title}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
-            <Ionicons 
-              name={getStatusIcon(item.status) as any} 
-              size={16} 
-              color={getStatusColor(item.status)} 
-            />
-            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+  const getAssignmentStatus = (assignment: any) => {
+    if (assignment.isSubmitted) return 'submitted';
+    const dueDate = new Date(assignment.endTime || assignment.dueDate);
+    const now = new Date();
+    if (now > dueDate) return 'overdue';
+    return 'pending';
+  };
+
+  const renderAssignment = ({ item }: { item: any }) => {
+    const status = getAssignmentStatus(item);
+    const title = item.assignmentName || item.title || 'Untitled Assignment';
+    const description = item.description || 'No description available';
+    const dueDate = item.endTime || item.dueDate;
+    
+    return (
+      <TouchableOpacity
+        style={styles.assignmentCard}
+        onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${item._id || item.id}`)}
+      >
+        <View style={styles.assignmentHeader}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.assignmentTitle} numberOfLines={2}>
+              {title}
             </Text>
+            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(status) + '20' }]}>
+              <Ionicons 
+                name={getStatusIcon(status) as any} 
+                size={16} 
+                color={getStatusColor(status)} 
+              />
+              <Text style={[styles.statusText, { color: getStatusColor(status) }]}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </Text>
+            </View>
           </View>
         </View>
-      </View>
 
-      <Text style={styles.assignmentDescription} numberOfLines={3}>
-        {item.description}
-      </Text>
+        <Text style={styles.assignmentDescription} numberOfLines={3}>
+          {description}
+        </Text>
 
-      <View style={styles.assignmentMeta}>
-        <View style={styles.metaRow}>
-          <Ionicons name="calendar-outline" size={16} color="#666" />
-          <Text style={styles.metaText}>Due: {formatDate(item.dueDate)}</Text>
+        <View style={styles.assignmentMeta}>
+          {dueDate && (
+            <View style={styles.metaRow}>
+              <Ionicons name="calendar-outline" size={16} color="#666" />
+              <Text style={styles.metaText}>Due: {formatDate(dueDate)}</Text>
+            </View>
+          )}
+          
+          {item.submissionDate && (
+            <View style={styles.metaRow}>
+              <Ionicons name="checkmark-circle-outline" size={16} color="#4CAF50" />
+              <Text style={styles.metaText}>Submitted: {formatDate(item.submissionDate)}</Text>
+            </View>
+          )}
+
+          {item.totalMarks && (
+            <View style={styles.metaRow}>
+              <Ionicons name="trophy-outline" size={16} color="#FF9800" />
+              <Text style={styles.metaText}>Max Score: {item.totalMarks}</Text>
+            </View>
+          )}
         </View>
-        
-        {item.submissionDate && (
-          <View style={styles.metaRow}>
-            <Ionicons name="checkmark-circle-outline" size={16} color="#4CAF50" />
-            <Text style={styles.metaText}>Submitted: {formatDate(item.submissionDate)}</Text>
-          </View>
-        )}
 
-        {item.score !== null && (
-          <View style={styles.metaRow}>
-            <Ionicons name="trophy-outline" size={16} color="#FF9800" />
-            <Text style={styles.metaText}>Score: {item.score}/{item.maxScore}</Text>
-          </View>
-        )}
-      </View>
+        <View style={styles.assignmentFooter}>
+          <TouchableOpacity style={styles.attachmentButton}>
+            <Ionicons name="document-attach-outline" size={16} color="#007AFF" />
+            <Text style={styles.attachmentText}>View Assignment</Text>
+          </TouchableOpacity>
+          
+          <Ionicons name="chevron-forward" size={20} color="#ccc" />
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-      <View style={styles.assignmentFooter}>
-        <TouchableOpacity style={styles.attachmentButton}>
-          <Ionicons name="document-attach-outline" size={16} color="#007AFF" />
-          <Text style={styles.attachmentText}>View Instructions</Text>
-        </TouchableOpacity>
-        
-        <Ionicons name="chevron-forward" size={20} color="#ccc" />
+  // Render loading state
+  if (assignmentsLoading && assignments.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Assignments</Text>
+          <Text style={styles.headerSubtitle}>Loading assignments...</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading assignments...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Render error state
+  if (assignmentsError && assignments.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Assignments</Text>
+          <Text style={styles.headerSubtitle}>Error loading assignments</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#F44336" />
+          <Text style={styles.errorText}>{assignmentsError}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Render footer for loading more
+  const renderFooter = () => {
+    if (!isLoadingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color="#007AFF" />
+        <Text style={styles.footerText}>Loading more...</Text>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Assignments</Text>
-        <Text style={styles.headerSubtitle}>{assignments.length} assignments available</Text>
+        <Text style={styles.headerSubtitle}>
+          {assignments.length} assignment{assignments.length !== 1 ? 's' : ''} available
+        </Text>
       </View>
 
       <FlatList
         data={assignments}
         renderItem={renderAssignment}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item._id || item.id || `assignment-${Math.random()}`}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={assignmentsRefreshing}
+            onRefresh={handleRefresh}
+            colors={['#007AFF']}
+            tintColor="#007AFF"
+          />
+        }
+        onEndReached={handleLoadMore}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons name="document-text-outline" size={48} color="#ccc" />
+            <Text style={styles.emptyText}>No assignments available</Text>
+            <Text style={styles.emptySubtext}>Check back later for new assignments</Text>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -253,7 +354,71 @@ const styles = StyleSheet.create({
   attachmentText: {
     fontSize: 14,
     color: '#007AFF',
-    marginLeft: 4,
+    marginLeft: 6,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 16,
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  footerLoader: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  footerText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 18,
+    color: '#666',
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    marginTop: 4,
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
   },
 });
