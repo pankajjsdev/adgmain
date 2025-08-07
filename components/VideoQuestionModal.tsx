@@ -2,6 +2,7 @@ import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { Question } from '@/types/video';
 import { htmlToPlainText } from '@/utils/htmlUtils';
 import { Ionicons } from '@expo/vector-icons';
+import { VideoAnalytics } from '@/utils/analytics';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
@@ -23,6 +24,7 @@ interface VideoQuestionModalProps {
   onAnswer: (answer: string) => void;
   onClose?: () => void;
   isFullscreen?: boolean;
+  onQuestionAnswer?: (answer: string, correct: boolean) => void;
 }
 
 export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
@@ -30,7 +32,8 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
   question,
   onAnswer,
   onClose,
-  isFullscreen = false
+  isFullscreen = false,
+  onQuestionAnswer
 }) => {
   const { styles, colors } = useGlobalStyles();
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
@@ -104,6 +107,14 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
       setTextAnswer('');
       setFillAnswers({});
       setTimeLeft(question.meta.timeToCompleteQuestion || 30);
+      
+      // Track question shown event
+      VideoAnalytics.trackVideoQuestionShown(
+        question.assignmentId || 'unknown',
+        question._id || 'unknown',
+        question.questionType || 'unknown',
+        0 // videoTime - this would need to come from video player context
+      );
     }
   }, [question]);
 
@@ -116,6 +127,16 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
         if (prev <= 1) {
           // Time's up - auto submit with current answer
           handleSubmit();
+          
+          // Track timeout event if question exists
+          if (question) {
+            VideoAnalytics.trackVideoQuestionTimeout(
+              question.assignmentId || 'unknown',
+              question._id || 'unknown',
+              question.meta?.timeToCompleteQuestion || 30
+            );
+          }
+          
           return 0;
         }
         return prev - 1;
@@ -123,7 +144,7 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [visible, timeLeft]);
+  }, [visible, timeLeft, question]);
 
   const handleSubmit = () => {
     if (!question) return;
@@ -142,6 +163,31 @@ export const VideoQuestionModal: React.FC<VideoQuestionModalProps> = ({
         answer = JSON.stringify(fillAnswers);
         break;
     }
+
+    // For text questions, we don't check correctness
+    const isTextQuestion = question.questionType === 'text';
+    
+    // For SCQ/MCQ questions, check if answer is correct
+    const isCorrect = !isTextQuestion ? selectedAnswer === question.answer : true;
+    
+    // Track question answered event
+    VideoAnalytics.trackVideoQuestionAnswered(
+      question.assignmentId || 'unknown',
+      question._id || 'unknown',
+      answer,
+      isCorrect,
+      0, // responseTime - would need to track this
+      {
+        question_type: question.questionType,
+        is_text_question: isTextQuestion
+      }
+    );
+    
+    // Call the onQuestionAnswer callback if provided
+    onQuestionAnswer?.(answer, isCorrect);
+    
+    // Close the modal after submission
+    onClose?.();
 
     if (!answer && question.questionType !== 'fillInTheBlanks') {
       Alert.alert('Please select or enter an answer');

@@ -1,6 +1,7 @@
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { Question } from '@/types/video';
 import { enterFullscreenOrientation, exitFullscreenOrientation } from '@/utils/orientationUtils';
+import { VideoAnalytics } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoPlayer, VideoView } from 'expo-video';
@@ -12,6 +13,7 @@ import { VideoQuestionModal } from './VideoQuestionModal';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface ModernVideoPlayerProps {
+  videoId: string; // Add videoId prop for analytics tracking
   videoUrl: string;
   posterUrl?: string;
   isPlaying: boolean;
@@ -43,6 +45,7 @@ interface ModernVideoPlayerProps {
 }
 
 export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
+  videoId,
   videoUrl,
   posterUrl,
   isPlaying,
@@ -80,7 +83,18 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const [isFavorite, setIsFavorite] = useState(false);
   const [dimensions, setDimensions] = useState({ width: screenWidth, height: screenHeight });
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>('auto');
-  
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferStartTime, setBufferStartTime] = useState<number | null>(null);
+  const [lastTrackedTime, setLastTrackedTime] = useState(0);
+  const [milestonesTracked, setMilestonesTracked] = useState<number[]>([]);
+  const [fullscreenStartTime, setFullscreenStartTime] = useState<number | null>(null);
+  const [lastSeekTime, setLastSeekTime] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [progressUpdateTimer, setProgressUpdateTimer] = useState<NodeJS.Timeout | null>(null);
+  const [lastProgressUpdate, setLastProgressUpdate] = useState(0);
+  const [lastVolume, setLastVolume] = useState(volume);
+  const [lastPlaybackSpeed, setLastPlaybackSpeed] = useState(playbackSpeed);
+
   // Platform-specific orientation detection
   const getActualOrientation = useCallback(() => {
     const { width, height } = dimensions;
@@ -242,11 +256,20 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   useEffect(() => {
     if (isPlaying) {
       resetControlsTimer();
+      if (!hasStarted) {
+        VideoAnalytics.trackVideoPlaybackStarted(videoId, currentTime);
+        setHasStarted(true);
+      } else {
+        VideoAnalytics.trackVideoPlaybackResumed(videoId, currentTime);
+      }
     } else {
       if (hideControlsTimer.current) {
         clearTimeout(hideControlsTimer.current);
       }
       setShowControls(true);
+      if (hasStarted) {
+        VideoAnalytics.trackVideoPlaybackPaused(videoId, currentTime, duration);
+      }
     }
     
     return () => {
@@ -254,7 +277,45 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
         clearTimeout(hideControlsTimer.current);
       }
     };
-  }, [isPlaying, resetControlsTimer]);
+  }, [isPlaying, resetControlsTimer, videoId, currentTime, duration, hasStarted]);
+
+  // Track volume changes
+  useEffect(() => {
+    if (volume !== lastVolume && lastVolume !== volume) {
+      VideoAnalytics.trackVideoVolumeChanged(videoId, lastVolume, volume);
+      setLastVolume(volume);
+    }
+  }, [volume, lastVolume, videoId]);
+
+  // Track playback speed changes
+  useEffect(() => {
+    if (playbackSpeed !== lastPlaybackSpeed && lastPlaybackSpeed !== playbackSpeed) {
+      VideoAnalytics.trackVideoSpeedChanged(videoId, lastPlaybackSpeed, playbackSpeed);
+      setLastPlaybackSpeed(playbackSpeed);
+    }
+  }, [playbackSpeed, lastPlaybackSpeed, videoId]);
+
+  // Track video completion
+  useEffect(() => {
+    if (isCompleted && duration > 0) {
+      VideoAnalytics.trackVideoPlaybackCompleted(videoId, duration, currentTime);
+    }
+  }, [isCompleted, videoId, duration, currentTime]);
+
+  // Track progress milestones (25%, 50%, 75%)
+  useEffect(() => {
+    if (duration > 0 && currentTime > 0) {
+      const progressPercentage = Math.round((currentTime / duration) * 100);
+      const milestones = [25, 50, 75];
+      
+      milestones.forEach(milestone => {
+        if (progressPercentage >= milestone && !milestonesTracked.includes(milestone)) {
+          VideoAnalytics.trackVideoMilestoneReached(videoId, milestone, currentTime);
+          setMilestonesTracked(prev => [...prev, milestone]);
+        }
+      });
+    }
+  }, [currentTime, duration, videoId, milestonesTracked]);
 
   const formatTime = (timeInSeconds: number): string => {
     const minutes = Math.floor(timeInSeconds / 60);

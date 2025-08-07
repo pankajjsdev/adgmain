@@ -10,8 +10,10 @@ import { SourceLoadEventPayload, StatusChangeEventPayload, TimeUpdateEventPayloa
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { ModernVideoPlayer } from './ModernVideoPlayer';
+import { VideoAnalytics } from '@/utils/analytics';
 
 interface VideoPlayerProps {
+  videoId: string; // Add videoId prop for analytics tracking
   videoUrl: string;
   posterUrl?: string;
   isPlaying: boolean;
@@ -43,6 +45,7 @@ interface VideoPlayerProps {
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+  videoId,
   videoUrl,
   posterUrl,
   isPlaying,
@@ -139,6 +142,32 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   
   // Use provided player or internal player
   const playerInstance = player || internalPlayer;
+
+  // Track video player opened event
+  useEffect(() => {
+    if (videoUrl) {
+      VideoAnalytics.trackVideoPlayerOpened(videoId, videoUrl);
+    }
+  }, [videoUrl, videoId]);
+
+  // Handle play/pause state changes for analytics
+  useEffect(() => {
+    if (isPlaying && playerInstance) {
+      VideoAnalytics.trackVideoPlaybackStarted(videoId, currentTime);
+    } else if (!isPlaying && playerInstance) {
+      VideoAnalytics.trackVideoPlaybackPaused(videoId, currentTime, duration);
+    }
+  }, [isPlaying, playerInstance, videoId, currentTime, duration]);
+
+  // Track video load success
+  useEffect(() => {
+    if (playerInstance && playerInstance.status && playerInstance.status.duration) {
+      const loadStartTime = Date.now();
+      const loadEndTime = Date.now();
+      const loadTime = loadEndTime - loadStartTime;
+      VideoAnalytics.trackVideoLoadSuccess(videoId, loadTime);
+    }
+  }, [playerInstance, videoId]);
   
   // HLS validation and monitoring
   useEffect(() => {
@@ -289,30 +318,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Enhanced fullscreen toggle with cross-platform optimization utilities
   const toggleFullscreen = useCallback(async () => {
-    console.log('🔄 Toggling fullscreen mode...');
+    const newFullscreen = !isFullscreen;
+    console.log('📱 Fullscreen toggle requested:', newFullscreen);
     
     try {
-      const newFullscreen = !isFullscreen;
       setIsFullscreen(newFullscreen);
       
       if (newFullscreen) {
-        console.log('📱 Entering fullscreen orientation...');
-        const success = await enterFullscreenOrientation();
-        if (!success) {
-          console.warn('Failed to enter fullscreen orientation');
-          return;
-        }
+        VideoAnalytics.trackVideoFullscreenEntered(videoId, currentTime);
+        await enterFullscreenOrientation();
+        console.log('📱 Entered fullscreen orientation');
         
-        // Hide status bar for immersive experience
+        // Hide status bar for fullscreen
         if (Platform.OS === 'android') {
           StatusBar.setHidden(true, 'slide');
         }
       } else {
+        VideoAnalytics.trackVideoFullscreenExited(videoId, currentTime, 0); // TODO: track actual fullscreen duration
         console.log('📱 Exiting fullscreen orientation...');
-        const success = await exitFullscreenOrientation();
-        if (!success) {
-          console.warn('Failed to exit fullscreen orientation');
-        }
+        await exitFullscreenOrientation();
         
         // Show status bar again
         if (Platform.OS === 'android') {
@@ -325,7 +349,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     } catch (error) {
       console.error('❌ Error toggling fullscreen:', error);
     }
-  }, [isFullscreen, onFullscreenChange]);
+  }, [isFullscreen, onFullscreenChange, videoId, currentTime]);
 
   // Handle play/pause with expo-video
   useEffect(() => {
@@ -503,6 +527,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       {/* Modern Video Player Controls */}
       <ModernVideoPlayer
+        videoId={videoId}
         videoUrl={videoUrl}
         posterUrl={posterUrl}
         isPlaying={isPlaying}

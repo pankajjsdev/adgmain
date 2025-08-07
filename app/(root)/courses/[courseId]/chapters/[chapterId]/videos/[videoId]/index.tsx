@@ -7,6 +7,7 @@ import useCourseStore from '@/store/courseStore';
 import { VideoData } from '@/types/video';
 import { htmlToPlainText } from '@/utils/htmlUtils';
 import { validateVideoUrl } from '@/utils/videoFormatUtils';
+import { VideoAnalytics, trackScreenView } from '@/utils/analytics';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
