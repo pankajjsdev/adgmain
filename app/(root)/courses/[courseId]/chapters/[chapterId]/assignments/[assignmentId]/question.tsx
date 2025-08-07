@@ -19,6 +19,7 @@ import { WebView } from 'react-native-webview';
 import { apiGet, apiPost } from '@/api';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import useThemeStore from '@/store/themeStore';
+import { AssignmentAnalytics, trackScreenView } from '@/utils/analytics';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -174,18 +175,64 @@ export default function AssignmentQuestion() {
   // Fetch assignment details and questions
   useEffect(() => {
     fetchAssignmentDetails();
+    trackScreenView('Assignment Question Page');
   }, [assignmentId]);
 
   const fetchAssignmentDetails = async () => {
+    const startTime = Date.now();
     try {
       setLoading(true);
+      
+      // Track question page started
+      AssignmentAnalytics.trackQuestionPageOpened(
+        assignmentId as string,
+        0, // Will be updated after questions are loaded
+        {
+          course_id: courseId,
+          chapter_id: chapterId,
+          load_start_time: startTime
+        }
+      );
+      
       const response = await apiGet(`/assignment/student/assignment/${assignmentId}`);
       if (response && response.data) {
         setAssignment(response.data.assignment);
         
+        const loadTime = Date.now() - startTime;
+        
+        // Track successful assignment load
+        AssignmentAnalytics.trackAssignmentLoadSuccess(
+          assignmentId as string,
+          loadTime,
+          {
+            assignment_type: response.data.assignment.assignmentType,
+            assignment_ui_type: response.data.assignment.assignmentUIType,
+            assignment_duration: response.data.assignment.assignmentDuration,
+            total_marks: response.data.assignment.totalMarks,
+            assignment_level: response.data.assignment.level,
+            has_submission: !!response.data.submission,
+            is_submitted: response.data.submission?.isSubmitted === 'true',
+            course_id: courseId,
+            chapter_id: chapterId
+          }
+        );
+        
         // Initialize submissions from existing data
         if (response.data.submission && response.data.submission.submission) {
           setSubmissions(response.data.submission.submission);
+          
+          // Track existing submission loaded
+          const answeredCount = response.data.submission.submission.filter((s: SubmissionItem) => s.attemptStatus === '1').length;
+          AssignmentAnalytics.trackQuestionProgressUpdated(
+            assignmentId as string,
+            0, // Current question index
+            response.data.submission.submission.length,
+            answeredCount,
+            {
+              is_submitted: response.data.submission.isSubmitted === 'true',
+              submission_restored: true
+            }
+          );
         }
         
         // Fetch questions for basic type assignments
@@ -193,28 +240,105 @@ export default function AssignmentQuestion() {
           await fetchQuestions();
         }
       } else {
+        const error = new Error('Failed to load assignment details');
         Alert.alert('Error', 'Failed to load assignment details');
+        
+        // Track load failure
+        AssignmentAnalytics.trackAssignmentLoadFailed(
+          assignmentId as string,
+          error,
+          {
+            error_context: 'empty_response',
+            course_id: courseId,
+            chapter_id: chapterId
+          }
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching assignment:', error);
       Alert.alert('Error', 'Failed to load assignment details');
+      
+      // Track load failure
+      AssignmentAnalytics.trackAssignmentLoadFailed(
+        assignmentId as string,
+        error,
+        {
+          error_context: 'api_call_failed',
+          course_id: courseId,
+          chapter_id: chapterId,
+          load_duration_ms: Date.now() - startTime
+        }
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const fetchQuestions = async () => {
+    const startTime = Date.now();
     try {
       setQuestionsLoading(true);
       const response = await apiGet(`/question/student/questions?assignmentId=${assignmentId}&limit=1000&skip=0&order=asc&status=10`);
       if (response && response.data) {
         setQuestions(response.data);
+        const loadTime = Date.now() - startTime;
+        
+        // Track successful questions load
+        AssignmentAnalytics.trackQuestionPageOpened(
+          assignmentId as string,
+          response.data.length,
+          {
+            questions_load_time_ms: loadTime,
+            question_types: response.data.map((q: QuestionData) => q.questionType).join(','),
+            total_questions: response.data.length
+          }
+        );
+        
+        // Track question types distribution
+        const questionTypes = response.data.reduce((acc: Record<string, number>, q: QuestionData) => {
+          acc[q.questionType] = (acc[q.questionType] || 0) + 1;
+          return acc;
+        }, {});
+        
+        AssignmentAnalytics.trackQuestionProgressUpdated(
+          assignmentId as string,
+          0, // Starting at first question
+          response.data.length,
+          0, // No questions answered yet
+          {
+            question_types_distribution: questionTypes,
+            questions_loaded: true
+          }
+        );
       } else {
+        const error = new Error('Failed to load questions');
         Alert.alert('Error', 'Failed to load questions');
+        
+        // Track questions load failure
+        AssignmentAnalytics.trackQuestionLoadError(
+          assignmentId as string,
+          'unknown',
+          error,
+          {
+            error_context: 'empty_response',
+            load_duration_ms: Date.now() - startTime
+          }
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching questions:', error);
       Alert.alert('Error', 'Failed to load questions');
+      
+      // Track questions load failure
+      AssignmentAnalytics.trackQuestionLoadError(
+        assignmentId as string,
+        'unknown',
+        error,
+        {
+          error_context: 'api_call_failed',
+          load_duration_ms: Date.now() - startTime
+        }
+      );
     } finally {
       setQuestionsLoading(false);
     }
@@ -263,10 +387,41 @@ export default function AssignmentQuestion() {
   const handleAnswerChange = (answer: string) => {
     const currentQuestion = questions[currentQuestionIndex];
     if (currentQuestion) {
+      const wasAnswered = getCurrentSubmission()?.attemptStatus === '1';
+      const isNowAnswered = answer.trim() !== '';
+      
       updateSubmission(currentQuestion._id, {
         answer,
         attemptStatus: answer.trim() ? '1' : '2'
       });
+      
+      // Track question answered (only when first answered or answer changes significantly)
+      if (!wasAnswered && isNowAnswered) {
+        AssignmentAnalytics.trackQuestionAnswered(
+          assignmentId as string,
+          currentQuestion._id,
+          currentQuestion.questionType,
+          0, // Answer time - could be tracked with timestamps
+          {
+            question_index: currentQuestionIndex + 1,
+            answer_length: answer.length,
+            question_level: currentQuestion.questionLevel,
+            has_explanation: !!getCurrentSubmission()?.explanation
+          }
+        );
+        
+        // Update progress
+        const answeredCount = submissions.filter(s => s.attemptStatus === '1').length + (isNowAnswered ? 1 : 0);
+        AssignmentAnalytics.trackQuestionProgressUpdated(
+          assignmentId as string,
+          currentQuestionIndex + 1,
+          questions.length,
+          answeredCount,
+          {
+            progress_percentage: Math.round((answeredCount / questions.length) * 100)
+          }
+        );
+      }
     }
   };
 
@@ -286,8 +441,11 @@ export default function AssignmentQuestion() {
   };
 
   const saveProgress = async () => {
+    const startTime = Date.now();
     try {
       setSubmitting(true);
+      const answeredCount = submissions.filter(s => s.attemptStatus === '1').length;
+      
       const payload = {
         submission: submissions,
         isSubmitted: 'false',
@@ -299,20 +457,61 @@ export default function AssignmentQuestion() {
       const response = await apiPost(`/courseManagement/studentAssignment/${assignmentId}`, payload);
       if (response.statusCode === 200) {
         Alert.alert('Success', 'Progress saved successfully!');
+        
+        // Track successful save
+        AssignmentAnalytics.trackQuestionSaveSuccess(
+          assignmentId as string,
+          questions[currentQuestionIndex]?._id || 'unknown',
+          Date.now() - startTime,
+          {
+            total_questions: questions.length,
+            answered_count: answeredCount,
+            current_question: currentQuestionIndex + 1,
+            completion_percentage: Math.round((answeredCount / questions.length) * 100),
+            save_trigger: 'manual'
+          }
+        );
       } else {
         Alert.alert('Error', 'Failed to save progress');
+        
+        // Track save failure
+        AssignmentAnalytics.trackQuestionSaveError(
+          assignmentId as string,
+          questions[currentQuestionIndex]?._id || 'unknown',
+          new Error('Save failed with status: ' + response.statusCode),
+          {
+            response_status: response.statusCode,
+            answered_count: answeredCount,
+            save_duration_ms: Date.now() - startTime
+          }
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving progress:', error);
       Alert.alert('Error', 'Failed to save progress');
+      
+      // Track save error
+      AssignmentAnalytics.trackQuestionSaveError(
+        assignmentId as string,
+        questions[currentQuestionIndex]?._id || 'unknown',
+        error,
+        {
+          error_context: 'api_call_failed',
+          answered_count: submissions.filter(s => s.attemptStatus === '1').length,
+          save_duration_ms: Date.now() - startTime
+        }
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
   const submitAssignment = async (isAutoSubmit = false) => {
+    const startTime = Date.now();
     try {
       setSubmitting(true);
+      const answeredCount = submissions.filter(s => s.attemptStatus === '1').length;
+      
       const payload = {
         submission: submissions,
         isSubmitted: 'true',
@@ -323,16 +522,55 @@ export default function AssignmentQuestion() {
 
       const response = await apiPost(`/courseManagement/studentAssignment/${assignmentId}`, payload);
       if (response.statusCode === 200) {
+        // Track successful submission
+        AssignmentAnalytics.trackQuestionSubmitSuccess(
+          assignmentId as string,
+          questions.length,
+          answeredCount,
+          Date.now() - startTime,
+          {
+            is_auto_submit: isAutoSubmit,
+            completion_percentage: Math.round((answeredCount / questions.length) * 100),
+            submit_trigger: isAutoSubmit ? 'timer_expired' : 'manual',
+            time_remaining: timeRemaining
+          }
+        );
+        
         Alert.alert(
           'Success',
           isAutoSubmit ? 'Assignment submitted due to time expiry!' : 'Assignment submitted successfully!',
           [{ text: 'OK', onPress: () => router.back() }]
         );
       } else {
+        // Track submission failure
+        AssignmentAnalytics.trackQuestionSubmitError(
+          assignmentId as string,
+          new Error('Submit failed with status: ' + response.statusCode),
+          {
+            response_status: response.statusCode,
+            answered_count: answeredCount,
+            is_auto_submit: isAutoSubmit,
+            submit_duration_ms: Date.now() - startTime
+          }
+        );
+        
         Alert.alert('Error', 'Failed to submit assignment');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting assignment:', error);
+      
+      // Track submission error
+      AssignmentAnalytics.trackQuestionSubmitError(
+        assignmentId as string,
+        error,
+        {
+          error_context: 'api_call_failed',
+          answered_count: submissions.filter(s => s.attemptStatus === '1').length,
+          is_auto_submit: isAutoSubmit,
+          submit_duration_ms: Date.now() - startTime
+        }
+      );
+      
       Alert.alert('Error', 'Failed to submit assignment');
     } finally {
       setSubmitting(false);

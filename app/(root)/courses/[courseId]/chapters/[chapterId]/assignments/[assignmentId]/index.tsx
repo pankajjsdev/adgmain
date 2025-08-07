@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { apiGet } from '@/api';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import useThemeStore from '@/store/themeStore';
+import { AssignmentAnalytics, trackScreenView } from '@/utils/analytics';
 
 interface AssignmentDetail {
   assignmentDuration: string;
@@ -78,29 +79,99 @@ export default function AssignmentDetail() {
   const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'rubric' | 'submission'>('details');
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
 
   // Fetch assignment details on mount
   useEffect(() => {
     if (assignmentId) {
       fetchAssignmentDetails();
+      trackScreenView('Assignment Detail Page');
     }
   }, [assignmentId]);
 
   const fetchAssignmentDetails = async () => {
+    const startTime = Date.now();
     try {
       setLoading(true);
       setError(null);
+      
+      // Track assignment opened
+      AssignmentAnalytics.trackAssignmentOpened(
+        assignmentId as string,
+        'unknown', // Will be updated once we get the response
+        {
+          course_id: courseId,
+          chapter_id: chapterId,
+          load_start_time: startTime
+        }
+      );
       
       const response = await apiGet<AssignmentDetailResponse>(`/assignment/student/assignment/${assignmentId}`);
       
       if (response.data) {
         setAssignmentDetail(response.data);
+        const loadTime = Date.now() - startTime;
+        
+        // Track successful load with assignment details
+        AssignmentAnalytics.trackAssignmentLoadSuccess(
+          assignmentId as string,
+          loadTime,
+          {
+            assignment_type: response.data.assignment.assignmentType,
+            assignment_ui_type: response.data.assignment.assignmentUIType,
+            assignment_duration: response.data.assignment.assignmentDuration,
+            total_marks: response.data.assignment.totalMarks,
+            assignment_level: response.data.assignment.level,
+            has_submission: !!response.data.submission,
+            is_submitted: response.data.submission?.isSubmitted === 'true',
+            course_id: courseId,
+            chapter_id: chapterId
+          }
+        );
+        
+        // Track if assignment is expired
+        const now = new Date();
+        const endTime = new Date(response.data.assignment.endTime);
+        if (now > endTime) {
+          const timeExpired = Math.floor((now.getTime() - endTime.getTime()) / 1000);
+          AssignmentAnalytics.trackAssignmentExpired(
+            assignmentId as string,
+            -timeExpired, // Negative to indicate already expired
+            {
+              assignment_type: response.data.assignment.assignmentType,
+              expired_duration_seconds: timeExpired
+            }
+          );
+        }
       } else {
+        const error = new Error('Failed to load assignment details');
         setError('Failed to load assignment details');
+        AssignmentAnalytics.trackAssignmentLoadFailed(
+          assignmentId as string,
+          error,
+          {
+            error_context: 'empty_response',
+            course_id: courseId,
+            chapter_id: chapterId
+          }
+        );
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to load assignment details');
+      const errorMessage = err.message || 'Failed to load assignment details';
+      setError(errorMessage);
+      
+      // Track load failure
+      AssignmentAnalytics.trackAssignmentLoadFailed(
+        assignmentId as string,
+        err,
+        {
+          error_context: 'api_call_failed',
+          course_id: courseId,
+          chapter_id: chapterId,
+          load_duration_ms: Date.now() - startTime
+        }
+      );
     } finally {
       setLoading(false);
     }
@@ -214,11 +285,46 @@ export default function AssignmentDetail() {
       const supported = await Linking.canOpenURL(url);
       if (supported) {
         await Linking.openURL(url);
+        
+        // Track successful file download
+        AssignmentAnalytics.trackAssignmentFileDownload(
+          assignmentId as string,
+          fileName,
+          fileName.split('.').pop() || 'unknown',
+          {
+            file_url: url,
+            download_method: 'browser_open'
+          }
+        );
       } else {
         Alert.alert('Error', 'Cannot open file URL');
+        
+        // Track download error
+        AssignmentAnalytics.trackAssignmentError(
+          assignmentId as string,
+          'file_download_failed',
+          new Error('Cannot open file URL'),
+          {
+            file_name: fileName,
+            file_url: url,
+            error_reason: 'unsupported_url'
+          }
+        );
       }
-    } catch (err) {
+    } catch (err: any) {
       Alert.alert('Error', 'Failed to download file');
+      
+      // Track download error
+      AssignmentAnalytics.trackAssignmentError(
+        assignmentId as string,
+        'file_download_failed',
+        err,
+        {
+          file_name: fileName,
+          file_url: url,
+          error_reason: 'exception_thrown'
+        }
+      );
     }
   };
 
@@ -294,6 +400,34 @@ export default function AssignmentDetail() {
       )}
     </View>
   );
+
+  const handleTabChange = (newTab: 'details' | 'rubric' | 'submission') => {
+    const oldTab = activeTab;
+    setActiveTab(newTab);
+    
+    // Track tab change
+    AssignmentAnalytics.trackAssignmentTabChanged(
+      assignmentId as string,
+      oldTab,
+      newTab,
+      {
+        assignment_type: assignmentDetail?.assignment.assignmentType,
+        has_submission: !!assignmentDetail?.submission
+      }
+    );
+    
+    // Track rubric viewing specifically
+    if (newTab === 'rubric') {
+      AssignmentAnalytics.trackAssignmentRubricViewed(
+        assignmentId as string,
+        {
+          has_rubric: !!(assignmentDetail?.assignment.rubric && assignmentDetail.assignment.rubric.length > 0),
+          rubric_items_count: assignmentDetail?.assignment.rubric?.length || 0,
+          max_score: assignmentDetail?.assignment.maxScore
+        }
+      );
+    }
+  };
 
   const renderRubricTab = (assignment: AssignmentDetail) => (
     <View style={styles.tabContent}>
