@@ -151,6 +151,64 @@ export default function AssignmentDetail() {
     }
   };
 
+  // Check if assignment is currently ongoing (between start and end time)
+  const isAssignmentOngoing = (startTime: string, endTime: string) => {
+    const now = new Date();
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    return now >= start && now <= end;
+  };
+
+  // Get submission state and determine button/message to show
+  const getSubmissionState = (assignment: AssignmentDetail, submission: AssignmentSubmission) => {
+    const isOngoing = isAssignmentOngoing(assignment.startTime, assignment.endTime);
+    const hasSubmissionData = submission.submission && (Array.isArray(submission.submission) ? submission.submission.length > 0 : Object.keys(submission.submission).length > 0);
+    const isSubmitted = submission.isSubmitted === 'true';
+    const isTestAssignment = assignment.assignmentUIType === 'test' || assignment.assignmentType === 'test';
+
+    if (isSubmitted) {
+      return {
+        type: 'submitted',
+        buttonText: 'View Assignment',
+        statusText: isTestAssignment ? 'Test Submitted Successfully' : 'Assignment Submitted Successfully',
+        subText: 'Results may be available soon',
+        buttonAction: 'view',
+        showButton: true
+      };
+    }
+
+    if (!isOngoing) {
+      return {
+        type: 'expired',
+        buttonText: 'Assignment Expired',
+        statusText: 'Assignment Time Expired',
+        subText: 'This assignment is no longer available',
+        buttonAction: 'none',
+        showButton: false
+      };
+    }
+
+    if (hasSubmissionData) {
+      return {
+        type: 'continue',
+        buttonText: 'Continue Assignment',
+        statusText: 'Assignment In Progress',
+        subText: 'You have saved progress. Continue where you left off.',
+        buttonAction: 'continue',
+        showButton: true
+      };
+    }
+
+    return {
+      type: 'start',
+      buttonText: 'Start Assignment',
+      statusText: 'Ready to Start',
+      subText: 'Begin your assignment when ready.',
+      buttonAction: 'start',
+      showButton: true
+    };
+  };
+
   const handleDownloadFile = async (url: string, fileName: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
@@ -440,61 +498,112 @@ export default function AssignmentDetail() {
           <View style={styles.submissionCard}>
             <View style={styles.submissionHeader}>
               <Ionicons 
-                name={submission.isSubmitted === 'true' ? 'checkmark-circle' : 'time'} 
+                name={(() => {
+                  const state = getSubmissionState(assignment, submission);
+                  switch (state.type) {
+                    case 'submitted': return 'checkmark-circle';
+                    case 'expired': return 'time-outline';
+                    case 'continue': return 'play-circle';
+                    default: return 'play-outline';
+                  }
+                })()} 
                 size={24} 
-                color={submission.isSubmitted === 'true' ? '#4CAF50' : '#FF9800'} 
+                color={(() => {
+                  const state = getSubmissionState(assignment, submission);
+                  switch (state.type) {
+                    case 'submitted': return '#4CAF50';
+                    case 'expired': return '#F44336';
+                    case 'continue': return '#FF9800';
+                    default: return '#007AFF';
+                  }
+                })()} 
               />
               <Text style={styles.submissionStatus}>
-                {submission.isSubmitted === 'true' ? 'Submitted' : 'Not Submitted'}
+                {getSubmissionState(assignment, submission).statusText}
               </Text>
             </View>
             
-            {submission.isSubmitted === 'true' ? (
-              <View style={styles.submissionDetails}>
-                <Text style={styles.submissionText}>Submitted on: {formatDate(submission.updatedAt)}</Text>
-                <Text style={styles.submissionText}>Score: {submission.score}/{assignment.totalMarks}</Text>
-                {submission.score > 0 && (
-                  <Text style={styles.submissionText}>
-                    Percentage: {Math.round((submission.score / parseInt(assignment.totalMarks)) * 100)}%
+            <View style={styles.submissionDetails}>
+              {getSubmissionState(assignment, submission).type === 'submitted' ? (
+                <>
+                  <Text style={styles.submissionText}>Submitted on: {formatDate(submission.updatedAt)}</Text>
+                  {submission.score !== undefined && assignment.totalMarks && (
+                    <>
+                      <Text style={styles.submissionText}>Score: {submission.score}/{assignment.totalMarks}</Text>
+                      {submission.score > 0 && (
+                        <Text style={styles.submissionText}>
+                          Percentage: {Math.round((submission.score / parseInt(assignment.totalMarks)) * 100)}%
+                        </Text>
+                      )}
+                    </>
+                  )}
+                  <Text style={styles.submissionSubtext}>
+                    {getSubmissionState(assignment, submission).subText}
                   </Text>
-                )}
-              </View>
-            ) : (
-              <View style={styles.submissionDetails}>
-                <Text style={styles.submissionText}>Ready to submit your assignment?</Text>
-                <Text style={styles.submissionSubtext}>
-                  Make sure to review all requirements before submitting.
-                </Text>
-              </View>
-            )}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.submissionText}>
+                    {getSubmissionState(assignment, submission).subText}
+                  </Text>
+                  {getSubmissionState(assignment, submission).type === 'expired' && (
+                    <Text style={styles.submissionSubtext}>
+                      Assignment ended on: {formatDate(assignment.endTime)}
+                    </Text>
+                  )}
+                </>
+              )}
+            </View>
           </View>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actionSection}>
-          {submission.isSubmitted === 'false' && new Date() <= new Date(assignment.endTime) && (
-            <>
-              <TouchableOpacity 
-                style={styles.startButton} 
-                onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${assignmentId}/question`)}
-              >
-                <Ionicons name="play-circle-outline" size={20} color="#fff" />
-                <Text style={styles.startButtonText}>Start Assignment</Text>
-              </TouchableOpacity>
+          {(() => {
+            const state = getSubmissionState(assignment, submission);
+            
+            if (!state.showButton) {
+              return null;
+            }
+            
+            switch (state.buttonAction) {
+              case 'start':
+                return (
+                  <TouchableOpacity 
+                    style={styles.startButton} 
+                    onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${assignmentId}/question`)}
+                  >
+                    <Ionicons name="play-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.startButtonText}>{state.buttonText}</Text>
+                  </TouchableOpacity>
+                );
               
-              <TouchableOpacity style={styles.submitButton} onPress={handleSubmitAssignment}>
-                <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
-                <Text style={styles.submitButtonText}>Submit Assignment</Text>
-              </TouchableOpacity>
-            </>
-          )}
-          
-          {submission.isSubmitted === 'true' && (
-            <TouchableOpacity style={styles.viewSubmissionButton}>
-              <Ionicons name="eye-outline" size={20} color="#007AFF" />
-              <Text style={styles.viewSubmissionButtonText}>View Submission</Text>
-            </TouchableOpacity>
-          )}
+              case 'continue':
+                return (
+                  <TouchableOpacity 
+                    style={styles.continueButton} 
+                    onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${assignmentId}/question`)}
+                  >
+                    <Ionicons name="play-circle" size={20} color="#fff" />
+                    <Text style={styles.continueButtonText}>{state.buttonText}</Text>
+                  </TouchableOpacity>
+                );
+              
+              case 'view':
+                return (
+                  <TouchableOpacity 
+                    style={styles.viewSubmissionButton}
+                    onPress={() => router.push(`/courses/${courseId}/chapters/${chapterId}/assignments/${assignmentId}/question`)}
+                  >
+                    <Ionicons name="eye-outline" size={20} color="#007AFF" />
+                    <Text style={styles.viewSubmissionButtonText}>{state.buttonText}</Text>
+                  </TouchableOpacity>
+                );
+              
+              default:
+                return null;
+            }
+          })()}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -841,6 +950,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   startButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  continueButton: {
+    backgroundColor: '#FF9800',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  continueButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
