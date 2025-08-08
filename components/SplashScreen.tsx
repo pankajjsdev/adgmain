@@ -1,7 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
-  Text,
   Image,
   Animated,
   StyleSheet,
@@ -31,11 +30,17 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
   }, [onAnimationComplete]);
 
   useEffect(() => {
-    const animationDuration = splashConfig?.duration || 2000;
+    // If splash config is not available, skip it
+    if (!splashConfig) {
+      handleAnimationComplete();
+      return;
+    }
+    
+    const animationDuration = splashConfig.duration || 2000;
     
     // Create animation sequence based on client configuration
     const createAnimation = () => {
-      switch (splashConfig?.animationType) {
+      switch (splashConfig.animationType) {
         case 'bounce':
           return Animated.sequence([
             Animated.spring(logoScale, {
@@ -110,19 +115,16 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
     return () => {
       animation.stop();
     };
-  }, [splashConfig?.animationType, splashConfig?.duration, logoScale, logoOpacity, textOpacity, taglineOpacity, handleAnimationComplete]);
+  }, [splashConfig, logoScale, logoOpacity, textOpacity, taglineOpacity, handleAnimationComplete]);
 
-  // If splash is disabled for this client, skip it
-  if (!splashConfig?.enabled) {
-    React.useEffect(() => {
-      onAnimationComplete();
-    }, [onAnimationComplete]);
+  // If splash config is not available, skip it
+  if (!splashConfig) {
     return null;
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: splashConfig?.backgroundColor || clientConfig.colors.primary }]}>
-      <StatusBar backgroundColor={splashConfig?.backgroundColor || clientConfig.colors.primary} barStyle="light-content" />
+    <View style={[styles.container, { backgroundColor: splashConfig.backgroundColor || clientConfig.colors.primary }]}>
+      <StatusBar backgroundColor={splashConfig.backgroundColor || clientConfig.colors.primary} barStyle="light-content" />
       
       <View style={styles.content}>
         {/* Logo */}
@@ -136,7 +138,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
           ]}
         >
           <Image
-            source={{ uri: splashConfig?.logoImage || clientConfig.assets.logo }}
+            source={{ uri: splashConfig.logoImage }}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -153,7 +155,7 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
               },
             ]}
           >
-            {splashConfig?.brandText || clientConfig.appName}
+            {splashConfig.brandText || clientConfig.displayName}
           </Animated.Text>
         )}
 

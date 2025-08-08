@@ -4,7 +4,7 @@ import {
   initializePortraitOrientation,
   unlockOrientation
 } from '@/utils/orientationUtils';
-import { VideoFormat, createVideoSource, detectVideoFormat, getBufferConfig, parseHLSManifest, validateHLSStream, validateVideoUrl } from '@/utils/videoFormatUtils';
+import { VideoFormat, createVideoSource, detectVideoFormat, generateFallbackSources, getBufferConfig, parseHLSManifest, validateHLSStream, validateVideoUrl } from '@/utils/videoFormatUtils';
 import { useEventListener } from 'expo';
 import { SourceLoadEventPayload, StatusChangeEventPayload, TimeUpdateEventPayload, VideoView, useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -80,31 +80,85 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hlsManifest, setHlsManifest] = useState<any>(null);
   const [streamHealth, setStreamHealth] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
   
-  // Detect video format and create properly configured video source
-  const { videoSource, videoFormat } = useMemo(() => {
-    console.log('🔧 Creating video source for URL:', videoUrl);
-    
-    // Validate the video URL first
-    const urlValidation = validateVideoUrl(videoUrl);
-    if (!urlValidation.isValid) {
-      console.error('❌ Invalid video URL detected:', urlValidation.message);
-      console.error('🔍 Please ensure API returns valid video URLs, not test/placeholder data');
+  // URL validation guard
+  const isValidVideoUrl = useMemo(() => {
+    if (!videoUrl || typeof videoUrl !== 'string') {
+      console.warn('⚠️ Invalid video URL provided:', videoUrl);
+      return false;
     }
     
-    const format = detectVideoFormat(videoUrl);
-    const source = createVideoSource(videoUrl);
-    const bufferConfig = getBufferConfig(format);
+    try {
+      const url = new URL(videoUrl);
+      const isValid = url.protocol === 'http:' || url.protocol === 'https:';
+      if (!isValid) {
+        console.warn('⚠️ Invalid URL protocol:', url.protocol);
+      }
+      return isValid;
+    } catch (error) {
+      console.warn('⚠️ Malformed video URL:', videoUrl, error);
+      return false;
+    }
+  }, [videoUrl]);
+  
+  // Fallback system state
+  const [fallbackSources, setFallbackSources] = useState<any[]>([]);
+  const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
+  const [hasError, setHasError] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  
+  // Internal time tracking for UI updates
+  const [internalCurrentTime, setInternalCurrentTime] = useState(0);
+  const [internalDuration, setInternalDuration] = useState(0);
+  
+  // Generate fallback sources when URL changes
+  useEffect(() => {
+    if (!isValidVideoUrl) {
+      console.warn('⚠️ Skipping fallback generation for invalid URL:', videoUrl);
+      setFallbackSources([]);
+      setHasError(true);
+      return;
+    }
     
-    console.log('🔧 Detected video format:', format);
-    console.log('🔧 Created video source:', source);
+    const sources = generateFallbackSources(videoUrl);
+    setFallbackSources(sources);
+    setCurrentSourceIndex(0);
+    setHasError(false);
+    setIsRetrying(false);
+    console.log('🔄 Generated fallback sources:', sources.length, 'sources');
+    sources.forEach((source, index) => {
+      console.log(`   ${index + 1}. ${source.format.toUpperCase()}: ${source.uri}`);
+    });
+  }, [videoUrl, isValidVideoUrl]);
+
+  // Get current video source from fallback list
+  const { videoSource, videoFormat } = useMemo(() => {
+    if (fallbackSources.length === 0) {
+      // Fallback to original source if no fallback sources generated
+      console.log('🔧 Using original source (no fallbacks available):', videoUrl);
+      const format = detectVideoFormat(videoUrl);
+      const source = createVideoSource(videoUrl);
+      return { videoSource: source, videoFormat: format };
+    }
+    
+    const currentSource = fallbackSources[currentSourceIndex] || fallbackSources[0];
+    console.log(`🔧 Using fallback source ${currentSourceIndex + 1}/${fallbackSources.length}:`, currentSource.uri);
+    console.log('🔧 Source format:', currentSource.format);
+    
+    // Validate the current video URL
+    const urlValidation = validateVideoUrl(currentSource.uri);
+    if (!urlValidation.isValid) {
+      console.error('❌ Invalid video URL detected:', urlValidation.message);
+    }
+    
+    const bufferConfig = getBufferConfig(currentSource.format);
     console.log('🔧 Buffer configuration:', bufferConfig);
     
     // If it's HLS, apply optimized settings
-    if (format === VideoFormat.HLS) {
+    if (currentSource.format === VideoFormat.HLS) {
       console.log('🎬 Applying HLS optimizations');
       // Apply HLS-specific settings to the source
-      (source as any).metadata = {
-        ...(source as any).metadata,
+      (currentSource as any).metadata = {
+        ...(currentSource as any).metadata,
         ...bufferConfig,
         allowExternalPlayback: true,
         allowsAirPlay: true,
@@ -112,13 +166,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     
     return { 
-      videoSource: source, 
-      videoFormat: format 
+      videoSource: currentSource, 
+      videoFormat: currentSource.format 
     };
-  }, [videoUrl]);
+  }, [fallbackSources, currentSourceIndex]);
 
-  // Create video player instance with expo-video
-  const internalPlayer = useVideoPlayer(videoSource, (player) => {
+  // Create video player instance with expo-video (only if URL is valid)
+  const internalPlayer = useVideoPlayer(
+    isValidVideoUrl ? videoSource : null, 
+    (player) => {
     console.log('🎬 Initializing video player with source:', videoUrl);
     try {
       player.loop = false;
@@ -205,6 +261,81 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setHlsManifest(null);
     }
   }, [videoUrl, videoFormat]);
+
+  // Handle video player errors and try fallback sources
+  const handleVideoError = useCallback((error: any) => {
+    console.error('❌ Video playback error:', error);
+    console.error('🔍 Error details:', {
+      errorCode: error.code || 'UNKNOWN',
+      errorMessage: error.message || 'Unknown error',
+      videoFormat: videoFormat,
+      videoSource: videoSource,
+      videoUrl: fallbackSources[currentSourceIndex]?.uri || videoUrl
+    });
+    
+    // Track error analytics
+    const errorObj = error instanceof Error ? error : new Error(error.message || 'Unknown error');
+    VideoAnalytics.trackVideoError(videoId, errorObj, {
+      current_time_seconds: currentTime,
+      video_format: videoFormat,
+      source_index: currentSourceIndex,
+      total_sources: fallbackSources.length,
+      video_url: fallbackSources[currentSourceIndex]?.uri || videoUrl
+    });
+    
+    // Log detailed error analysis
+    console.error('📊 Video Source Analysis:', {
+      url: fallbackSources[currentSourceIndex]?.uri || videoUrl,
+      format: videoFormat,
+      domain: new URL(fallbackSources[currentSourceIndex]?.uri || videoUrl).hostname,
+      extension: (fallbackSources[currentSourceIndex]?.uri || videoUrl).split('.').pop(),
+      isValidUrl: true,
+      timestamp: new Date().toISOString()
+    });
+    
+    console.error('🔍 Error Details for API Team:');
+    console.error({
+      errorCode: error.code || 'ERR_UNEXPECTED',
+      errorMessage: error.message || 'Operation Stopped',
+      errorType: error.constructor?.name || 'Unknown',
+      stackTrace: error.stack || 'No stack trace available'
+    });
+    
+    setHasError(true);
+    
+    // Try next fallback source if available
+    if (currentSourceIndex < fallbackSources.length - 1) {
+      const nextIndex = currentSourceIndex + 1;
+      console.log(`🔄 Trying fallback source ${nextIndex + 1}/${fallbackSources.length}:`, fallbackSources[nextIndex]?.uri);
+      setIsRetrying(true);
+      setCurrentSourceIndex(nextIndex);
+      setHasError(false);
+      
+      // Reset retry flag after a delay
+      setTimeout(() => {
+        setIsRetrying(false);
+      }, 2000);
+    } else {
+      console.error('❌ All fallback sources exhausted. Video playback failed.');
+      setIsRetrying(false);
+    }
+  }, [videoId, videoFormat, videoSource, fallbackSources, currentSourceIndex, videoUrl, currentTime]);
+
+  // Add error event listener to player
+  useEffect(() => {
+    if (playerInstance) {
+      const errorListener = (event: any) => {
+        handleVideoError(event.error || event);
+      };
+      
+      // Listen for error events
+      playerInstance.addEventListener?.('error', errorListener);
+      
+      return () => {
+        playerInstance.removeEventListener?.('error', errorListener);
+      };
+    }
+  }, [playerInstance, handleVideoError]);
 
   // Validate player instance
   useEffect(() => {
@@ -353,6 +484,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Handle play/pause with expo-video
   useEffect(() => {
+    console.log('🎮 Play/pause useEffect triggered:', {
+      isPlaying,
+      hasPlayerInstance: !!playerInstance,
+      playerStatus: playerInstance?.status,
+      playerPlaying: playerInstance?.playing
+    });
+    
     if (!playerInstance) {
       console.warn('⚠️ No player instance available');
       return;
@@ -419,12 +557,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Set up event listeners using useEventListener
   useEventListener(playerInstance, 'timeUpdate', (payload: TimeUpdateEventPayload) => {
-    onTimeUpdate({
+    // Update internal state for UI
+    setInternalCurrentTime(payload.currentTime);
+    setInternalDuration(playerInstance.duration);
+    
+    const progressData = {
       positionMillis: payload.currentTime * 1000,
       durationMillis: playerInstance.duration * 1000,
       isLoaded: true,
       isPlaying: playerInstance.playing
+    };
+    
+    // Debug every timeUpdate event to see if it's firing
+    console.log('⏱️ TimeUpdate Event:', {
+      currentTime: payload.currentTime,
+      duration: playerInstance.duration,
+      progress: (payload.currentTime / playerInstance.duration * 100).toFixed(1) + '%',
+      isPlaying: playerInstance.playing,
+      onTimeUpdateCalled: true
     });
+    
+    onTimeUpdate(progressData);
   });
 
   useEventListener(playerInstance, 'statusChange', (payload: StatusChangeEventPayload) => {
@@ -457,6 +610,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       shouldPlay: isPlaying
     });
     
+    // Set initial duration in internal state
+    setInternalDuration(payload.duration);
+    
     onLoad({
       durationMillis: payload.duration * 1000,
       isLoaded: true
@@ -475,6 +631,59 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }, 200);
     }
   });
+
+  // Handle seek functionality
+  const handleSeek = useCallback(async (time: number) => {
+    console.log('🎯 VideoPlayer handleSeek called:', {
+      seekTime: time,
+      currentTime,
+      duration: playerInstance?.duration,
+      playerStatus: playerInstance?.status
+    });
+    
+    if (!playerInstance) {
+      console.warn('⚠️ Cannot seek: No player instance');
+      return;
+    }
+    
+    try {
+      // Convert seconds to milliseconds for expo-video
+      const timeInMs = time * 1000;
+      await playerInstance.seekByAsync(timeInMs);
+      console.log('✅ Seek successful to:', time, 'seconds');
+    } catch (error) {
+      console.error('❌ Seek failed:', error);
+    }
+  }, [playerInstance, currentTime]);
+
+  // Debug: Check video progress every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (playerInstance) {
+        console.log('🔍 Video Progress Check:', {
+          currentTime: playerInstance.currentTime,
+          duration: playerInstance.duration,
+          playing: playerInstance.playing,
+          status: playerInstance.status,
+          isPlaying: isPlaying
+        });
+      }
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [playerInstance, isPlaying]);
+
+  // Show error state for invalid URLs
+  if (!isValidVideoUrl) {
+    return (
+      <View style={[styles.container, style]}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Invalid Video URL</Text>
+          <Text style={styles.errorSubtext}>Please check the video source</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, style]}>
@@ -531,14 +740,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         videoUrl={videoUrl}
         posterUrl={posterUrl}
         isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
+        currentTime={internalCurrentTime || playerInstance?.currentTime || currentTime}
+        duration={internalDuration || playerInstance?.duration || duration}
         canSeek={canSeek}
         videoType={videoType}
         isCompleted={isCompleted}
         volume={volume}
         playbackSpeed={playbackSpeed}
         onPlayPause={onPlayPause}
+        onSeek={handleSeek}
         onTimeUpdate={onTimeUpdate}
         onLoad={onLoad}
         onFullscreenChange={toggleFullscreen}
@@ -553,6 +763,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onQuestionClose={onQuestionClose}
         videoTitle={videoTitle}
         videoAuthor={videoAuthor}
+        // Fallback system props
+        hasError={hasError}
+        isRetrying={isRetrying}
+        currentSourceIndex={currentSourceIndex}
+        totalSources={fallbackSources.length}
+        currentSourceUrl={fallbackSources[currentSourceIndex]?.uri || videoUrl}
       />
     </View>
   );
@@ -688,5 +904,24 @@ const styles = StyleSheet.create({
   progressFill: {
     height: 4,
     borderRadius: 2,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    padding: 20,
+  },
+  errorText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  errorSubtext: {
+    color: '#ccc',
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

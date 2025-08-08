@@ -1,12 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { apiGet } from '@/api';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
-import useThemeStore from '@/store/themeStore';
 import { AssignmentAnalytics, trackScreenView } from '@/utils/analytics';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface AssignmentDetail {
   assignmentDuration: string;
@@ -71,9 +70,7 @@ export default function AssignmentDetail() {
   }>();
 
   // Store hooks
-  const { getCurrentTheme } = useThemeStore();
-  const currentTheme = getCurrentTheme();
-  const globalStyles = useGlobalStyles();
+  const { styles: globalStyles, colors } = useGlobalStyles();
 
   // Local state
   const [assignmentDetail, setAssignmentDetail] = useState<AssignmentDetailResponse | null>(null);
@@ -339,6 +336,9 @@ export default function AssignmentDetail() {
     );
   };
 
+  // Create theme-aware styles early
+  const styles = createStyles({ colors });
+
   const renderLoading = () => (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -536,9 +536,6 @@ export default function AssignmentDetail() {
   const { assignment, submission } = assignmentDetail;
   const statusInfo = getStatusInfo(assignment.status);
   const levelColor = getLevelColor(assignment.level);
-  
-  // Create theme-aware styles
-  const styles = createStyles(currentTheme);
 
   // Tabs configuration
   const tabs = [

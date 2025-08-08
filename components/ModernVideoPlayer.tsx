@@ -1,7 +1,7 @@
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { Question } from '@/types/video';
-import { enterFullscreenOrientation, exitFullscreenOrientation } from '@/utils/orientationUtils';
 import { VideoAnalytics } from '@/utils/analytics';
+import { enterFullscreenOrientation, exitFullscreenOrientation } from '@/utils/orientationUtils';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoPlayer, VideoView } from 'expo-video';
@@ -21,6 +21,7 @@ interface ModernVideoPlayerProps {
   duration: number;
   canSeek: boolean;
   onPlayPause: () => void;
+  onSeek?: (time: number) => void;
   onTimeUpdate: (status: any) => void;
   onLoad: (status: any) => void;
   videoRef?: React.RefObject<VideoView | null>;
@@ -42,6 +43,12 @@ interface ModernVideoPlayerProps {
   // Video title and author
   videoTitle?: string;
   videoAuthor?: string;
+  // Fallback system props
+  hasError?: boolean;
+  isRetrying?: boolean;
+  currentSourceIndex?: number;
+  totalSources?: number;
+  currentSourceUrl?: string;
 }
 
 export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
@@ -53,6 +60,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   duration,
   canSeek,
   onPlayPause,
+  onSeek,
   onTimeUpdate,
   onLoad,
   videoRef: externalVideoRef,
@@ -71,7 +79,13 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   onQuestionAnswer,
   onQuestionClose,
   videoTitle = 'Nadi Shodhana Pranayama',
-  videoAuthor = 'by Joshna Ramakrishnan'
+  videoAuthor = 'by Joshna Ramakrishnan',
+  // Fallback system props
+  hasError = false,
+  isRetrying = false,
+  currentSourceIndex = 0,
+  totalSources = 1,
+  currentSourceUrl
 }) => {
   const { colors } = useGlobalStyles();
   const internalVideoRef = useRef<VideoView>(null);
@@ -337,13 +351,37 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   };
 
   const handleProgressBarPress = (event: any) => {
-    if (!canSeek) return;
+    console.log('🎯 Seek Debug - Progress bar pressed:', {
+      canSeek,
+      duration,
+      currentTime,
+      eventType: typeof event?.nativeEvent,
+      hasLocationX: !!event?.nativeEvent?.locationX
+    });
+    
+    if (!canSeek) {
+      console.log('🚫 Seek blocked - canSeek is false');
+      return;
+    }
     
     const { locationX } = event.nativeEvent;
     const progressBarWidth = dimensions.width - (getResponsiveSize(40) * 2); // Account for padding
     const seekPercentage = Math.max(0, Math.min(1, locationX / progressBarWidth));
     const seekTime = seekPercentage * duration;
-    handleSeek(seekTime);
+    
+    console.log('🎯 Seek Debug - Calculated values:', {
+      locationX,
+      progressBarWidth,
+      seekPercentage,
+      seekTime,
+      onSeekType: typeof onSeek
+    });
+    
+    if (onSeek) {
+      onSeek(seekTime);
+    } else {
+      console.warn('⚠️ onSeek prop not provided');
+    }
     resetControlsTimer();
   };
 
@@ -357,6 +395,26 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   };
 
   const progress = duration > 0 ? currentTime / duration : 0;
+  
+  // Debug progress calculation every 5 seconds
+  useEffect(() => {
+    const currentTimeSeconds = Math.floor(currentTime);
+    if (currentTimeSeconds % 5 === 0 && currentTimeSeconds !== (window as any).lastUILoggedTime && currentTime > 0) {
+      console.log('🎨 UI Progress Debug:', {
+        currentTime,
+        duration,
+        progress: (progress * 100).toFixed(1) + '%',
+        progressRaw: progress,
+        isPlaying,
+        propsReceived: {
+          currentTime: typeof currentTime,
+          duration: typeof duration,
+          isPlaying: typeof isPlaying
+        }
+      });
+      (window as any).lastUILoggedTime = currentTimeSeconds;
+    }
+  }, [currentTime, duration, progress, isPlaying]);
 
   // Handle fullscreen toggle with orientation switching
   const handleFullscreenToggle = useCallback(async () => {
@@ -460,7 +518,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
         ]}
         pointerEvents={showControls ? 'auto' : 'none'}
       >
-        {/* Top Controls - Title */}
+        {/* Video Title and Author - Top Left */}
         <View style={styles.topControls}>
           <View style={styles.titleContainer}>
             <Text style={[styles.videoTitle, { fontSize: getResponsiveSize(20) }]} numberOfLines={2}>
@@ -632,7 +690,12 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
             }]}
             onPress={() => {
               const seekTime = Math.max(0, currentTime - 10);
-              handleSeek(seekTime);
+              console.log('⏪ Skip backward pressed, seeking to:', seekTime);
+              if (onSeek) {
+                onSeek(seekTime);
+              } else {
+                console.warn('⚠️ onSeek prop not provided for skip backward');
+              }
               handleControlPress();
             }}
           >
@@ -646,6 +709,8 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           <TouchableOpacity 
             style={styles.centerPlayButton}
             onPress={() => {
+              console.log('🎮 ModernVideoPlayer: Play/pause button pressed, current isPlaying:', isPlaying);
+              console.log('🎮 ModernVideoPlayer: onPlayPause function type:', typeof onPlayPause);
               onPlayPause();
               handleControlPress();
             }}
@@ -673,7 +738,12 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
             }]}
             onPress={() => {
               const seekTime = Math.min(duration, currentTime + 10);
-              handleSeek(seekTime);
+              console.log('⏩ Skip forward pressed, seeking to:', seekTime);
+              if (onSeek) {
+                onSeek(seekTime);
+              } else {
+                console.warn('⚠️ onSeek prop not provided for skip forward');
+              }
               handleControlPress();
             }}
           >
@@ -720,56 +790,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           </Text>
         </View>
         
-        {/* Bottom Navigation Controls */}
-        {actualIsPortrait && (
-          <View style={styles.bottomNavigation}>
-            <TouchableOpacity 
-              style={styles.navButton}
-              onPress={() => {
-                Alert.alert('Navigation', 'Overview button pressed');
-                handleControlPress();
-              }}
-            >
-              <View style={styles.navButtonInner}>
-                <View style={styles.navIcon}>
-                  <View style={styles.navSquare} />
-                  <View style={styles.navSquare} />
-                  <View style={styles.navSquare} />
-                </View>
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.navButton}
-              onPress={() => {
-                Alert.alert('Navigation', 'Home button pressed');
-                handleControlPress();
-              }}
-            >
-              <View style={styles.navButtonInner}>
-                <View style={[styles.navCircle, {
-                  width: getResponsiveSize(20),
-                  height: getResponsiveSize(20),
-                  borderRadius: getResponsiveSize(10)
-                }]} />
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.navButton}
-              onPress={() => {
-                if (onClose) {
-                  onClose();
-                } else {
-                  Alert.alert('Navigation', 'Back button pressed');
-                }
-                handleControlPress();
-              }}
-            >
-              <Ionicons name="chevron-back" size={getResponsiveSize(24)} color="#fff" />
-            </TouchableOpacity>
-          </View>
-        )}
+       
       </Animated.View>
       
       {/* Speed Menu */}

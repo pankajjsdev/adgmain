@@ -3,6 +3,8 @@
  * Supports HLS, DASH, MPD, and standard video formats
  */
 
+import { Platform } from 'react-native';
+
 export enum VideoFormat {
   HLS = 'hls',
   DASH = 'dash',
@@ -386,6 +388,86 @@ export const validateVideoUrl = (url: string): { isValid: boolean; format: Video
     format,
     message: `Valid ${getFormatDisplayName(format)} detected`
   };
+};
+
+/**
+ * Generate fallback video sources for when primary source fails
+ * @param originalUrl - Original video URL
+ * @returns Array of VideoSource objects in priority order
+ */
+export const generateFallbackSources = (originalUrl: string): VideoSource[] => {
+  const fallbackSources: VideoSource[] = [];
+  
+  // Add original source first
+  fallbackSources.push(createVideoSource(originalUrl));
+  
+  try {
+    const url = new URL(originalUrl);
+    const pathParts = url.pathname.split('/');
+    const filename = pathParts[pathParts.length - 1];
+    const filenameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+    
+    // Generate format alternatives
+    const baseUrl = url.origin + url.pathname.substring(0, url.pathname.lastIndexOf('/'));
+    
+    // Try HLS version
+    const hlsUrl = `${baseUrl}/${filenameWithoutExt}.m3u8`;
+    fallbackSources.push(createVideoSource(hlsUrl));
+    
+    // Try different MP4 qualities
+    const mp4Variants = [
+      `${baseUrl}/${filenameWithoutExt}_720p.mp4`,
+      `${baseUrl}/${filenameWithoutExt}_480p.mp4`,
+      `${baseUrl}/${filenameWithoutExt}_360p.mp4`
+    ];
+    
+    mp4Variants.forEach(variantUrl => {
+      fallbackSources.push(createVideoSource(variantUrl));
+    });
+    
+    // Add local HLS fallback (platform-specific)
+    const localHLSPath = Platform.OS === 'ios' 
+      ? 'file://index.m3u8'
+      : 'file:///android_asset/index.m3u8';
+    
+    fallbackSources.push({
+      uri: localHLSPath,
+      format: VideoFormat.HLS,
+      headers: {
+        'Accept': 'application/vnd.apple.mpegurl, application/x-mpegURL',
+        'User-Agent': 'ExpoVideoPlayer/1.0'
+      },
+      shouldCache: false
+    });
+    
+    // Add online test video as final fallback
+    fallbackSources.push(createVideoSource('https://mux.com/test.m3u8'));
+    
+  } catch (error) {
+    console.warn('Failed to generate fallback sources:', error);
+  }
+  
+  return fallbackSources;
+};
+
+/**
+ * Check if video format is reliable for playback
+ * @param format - VideoFormat
+ * @returns boolean indicating reliability
+ */
+export const isFormatReliable = (format: VideoFormat): boolean => {
+  switch (format) {
+    case VideoFormat.MP4:
+    case VideoFormat.MOV:
+      return true;
+    case VideoFormat.HLS:
+      return Platform.OS === 'ios' ? true : false; // HLS more reliable on iOS
+    case VideoFormat.DASH:
+    case VideoFormat.MPD:
+      return Platform.OS === 'android' ? true : false; // DASH only on Android
+    default:
+      return false;
+  }
 };
 
 /**

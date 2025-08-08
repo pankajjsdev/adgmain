@@ -18,7 +18,6 @@ import * as DocumentPicker from 'expo-document-picker';
 import { WebView } from 'react-native-webview';
 import { apiGet, apiPost } from '@/api';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
-import useThemeStore from '@/store/themeStore';
 import { AssignmentAnalytics, trackScreenView } from '@/utils/analytics';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -104,12 +103,10 @@ export default function AssignmentQuestion() {
   }>();
 
   // Theme and global styles
-  const { getCurrentTheme } = useThemeStore();
-  const currentTheme = getCurrentTheme();
-  const globalStyles = useGlobalStyles();
+  const { styles: globalStyles, colors } = useGlobalStyles();
   
   // Create theme-aware styles
-  const styles = createStyles(currentTheme);
+  const styles = createStyles({ colors });
 
   // State management
   const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
