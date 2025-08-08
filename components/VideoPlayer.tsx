@@ -1,3 +1,4 @@
+import { VideoAnalytics } from '@/utils/analytics';
 import {
   enterFullscreenOrientation,
   exitFullscreenOrientation,
@@ -8,9 +9,8 @@ import { VideoFormat, createVideoSource, detectVideoFormat, generateFallbackSour
 import { useEventListener } from 'expo';
 import { SourceLoadEventPayload, StatusChangeEventPayload, TimeUpdateEventPayload, VideoView, useVideoPlayer } from 'expo-video';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { ModernVideoPlayer } from './ModernVideoPlayer';
-import { VideoAnalytics } from '@/utils/analytics';
 
 interface VideoPlayerProps {
   videoId: string; // Add videoId prop for analytics tracking
@@ -79,6 +79,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hlsValidation, setHlsValidation] = useState<{ isValid: boolean; message: string } | null>(null);
   const [hlsManifest, setHlsManifest] = useState<any>(null);
   const [streamHealth, setStreamHealth] = useState<'checking' | 'healthy' | 'unhealthy' | 'unknown'>('unknown');
+  const [shouldShowSafeArea, setShouldShowSafeArea] = useState(false);
   
   // URL validation guard
   const isValidVideoUrl = useMemo(() => {
@@ -346,6 +347,25 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       playerMethods: playerInstance ? Object.getOwnPropertyNames(Object.getPrototypeOf(playerInstance)) : []
     });
   }, [playerInstance]);
+
+  // Manage SafeAreaView visibility based on player state and playback
+  useEffect(() => {
+    // Show SafeAreaView when:
+    // 1. Player instance exists (video player is shown)
+    // 2. Video is playing
+    // 3. Video URL is valid
+    const shouldShow = !!playerInstance && (isPlaying || !!videoUrl) && isValidVideoUrl;
+    
+    console.log('🛡️ SafeAreaView state update:', {
+      shouldShow,
+      hasPlayer: !!playerInstance,
+      isPlaying,
+      hasVideoUrl: !!videoUrl,
+      isValidUrl: isValidVideoUrl
+    });
+    
+    setShouldShowSafeArea(shouldShow);
+  }, [playerInstance, isPlaying, videoUrl, isValidVideoUrl]);
 
 
 
@@ -675,7 +695,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Show error state for invalid URLs
   if (!isValidVideoUrl) {
-    return (
+    const ErrorContent = (
       <View style={[styles.container, style]}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Invalid Video URL</Text>
@@ -683,9 +703,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </View>
       </View>
     );
+    
+    return shouldShowSafeArea ? (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+        {ErrorContent}
+      </SafeAreaView>
+    ) : ErrorContent;
   }
 
-  return (
+  const VideoContent = (
     <View style={[styles.container, style]}>
       <VideoView
         ref={videoRef}
@@ -698,7 +724,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       />
 
       {/* Format Indicator */}
-      {videoFormat && videoFormat !== VideoFormat.UNKNOWN && (
+      {/* {videoFormat && videoFormat !== VideoFormat.UNKNOWN && (
         <View style={styles.formatIndicator}>
           <View style={[
             styles.formatBadge,
@@ -732,7 +758,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </View>
           )}
         </View>
-      )}
+      )} */}
 
       {/* Modern Video Player Controls */}
       <ModernVideoPlayer
@@ -772,6 +798,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       />
     </View>
   );
+  
+  return shouldShowSafeArea ? (
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+      {VideoContent}
+    </SafeAreaView>
+  ) : VideoContent;
 };
 
 const styles = StyleSheet.create({

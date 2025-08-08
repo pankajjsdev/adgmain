@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoPlayer, VideoView } from 'expo-video';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, BackHandler, Dimensions, Platform, Share, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, BackHandler, Dimensions, Platform, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { VideoQuality, VideoQualityModal } from './VideoQualityModal';
 import { VideoQuestionModal } from './VideoQuestionModal';
 
@@ -202,17 +202,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     Alert.alert('Success', isFavorite ? 'Removed from favorites' : 'Added to favorites');
   }, [isFavorite]);
   
-  const handleShare = useCallback(async () => {
-    try {
-      await Share.share({
-        message: `Check out this video: ${videoTitle}\n${videoAuthor}`,
-        title: videoTitle,
-      });
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
-  }, [videoTitle, videoAuthor]);
-  
+
   const handleSettings = useCallback(() => {
     setShowQualityModal(true);
     setShowSpeedMenu(false); // Close speed menu if open
@@ -492,8 +482,21 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     return () => backHandler.remove();
   }, [isFullscreen, handleFullscreenToggle]);
 
+  console.log("controlsOpacity", controlsOpacity)
+
   return (
     <View style={[styles.container, style, isFullscreen && styles.fullscreenContainer]}>
+      {player && (
+        <VideoView
+          ref={videoRef}
+          player={player}
+          style={styles.video}
+          contentFit="contain"
+          nativeControls={false}
+          allowsFullscreen={false}
+          allowsPictureInPicture={false}
+        />
+      )}
       {/* Dark overlay when controls are shown */}
       <Animated.View 
         style={[
@@ -504,11 +507,16 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       />
       
       {/* Tap overlay to toggle controls */}
-      <TouchableOpacity 
+      <View 
         style={styles.tapOverlay} 
-        activeOpacity={1}
-        onPress={handleVideoPress}
-      />
+        pointerEvents={showControls ? 'none' : 'auto'}
+      >
+        <TouchableOpacity 
+          style={styles.tapOverlay} 
+          activeOpacity={1}
+          onPress={handleVideoPress}
+        />
+      </View>
       
       {/* Controls Overlay */}
       <Animated.View 
@@ -566,17 +574,18 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.sideControlButton, {
-                  width: getResponsiveSize(48),
-                  height: getResponsiveSize(48),
-                  borderRadius: getResponsiveSize(24)
+                  width: getResponsiveSize(44),
+                  height: getResponsiveSize(44),
+                  borderRadius: getResponsiveSize(22)
                 }]}
                 onPress={() => {
-                  handleShare();
+                  handleSettings();
                   handleControlPress();
                 }}
               >
-                <Ionicons name="share-outline" size={getResponsiveSize(24)} color="#000" />
+                <Ionicons name="settings-outline" size={getResponsiveSize(22)} color="#000" />
               </TouchableOpacity>
+
               <TouchableOpacity 
                 style={[styles.sideControlButton, {
                   width: getResponsiveSize(48),
@@ -636,19 +645,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   color={isFavorite ? "#ff3b30" : "#000"} 
                 />
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.sideControlButton, {
-                  width: getResponsiveSize(44),
-                  height: getResponsiveSize(44),
-                  borderRadius: getResponsiveSize(22)
-                }]}
-                onPress={() => {
-                  handleShare();
-                  handleControlPress();
-                }}
-              >
-                <Ionicons name="share-outline" size={getResponsiveSize(22)} color="#000" />
-              </TouchableOpacity>
+
               <TouchableOpacity 
                 style={[styles.sideControlButton, {
                   width: getResponsiveSize(44),
@@ -1084,6 +1081,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  video: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000',
   },
   bottomNavigation: {
     flexDirection: 'row',
