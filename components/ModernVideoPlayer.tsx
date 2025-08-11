@@ -136,18 +136,53 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   // Auto-hide controls after 3 seconds of inactivity
   const hideControlsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // Handle dimension changes
+  // Reset controls timer function
+  const resetControlsTimer = useCallback(() => {
+    if (hideControlsTimer.current) {
+      clearTimeout(hideControlsTimer.current);
+    }
+    setShowControls(true);
+    hideControlsTimer.current = setTimeout(() => {
+      if (isPlaying) {
+        setShowControls(false);
+      }
+    }, 3000);
+  }, [isPlaying]);
+  
+  // Enhanced dimensions update with fullscreen awareness
   useEffect(() => {
     const updateDimensions = ({ window }: { window: { width: number; height: number } }) => {
       const { width, height } = window;
+      const isLandscape = width > height;
+      
+      console.log('📱 Dimensions updated:', {
+        width,
+        height,
+        isLandscape,
+        isFullscreen,
+        platform: Platform.OS
+      });
+      
       setDimensions({ width, height });
+      
+      // Update fullscreen state based on orientation if needed
+      if (isFullscreen && !isLandscape) {
+        console.log('⚠️ Fullscreen but not landscape - may need adjustment');
+      }
       
       // Platform-specific handling for orientation changes
       if (Platform.OS === 'ios') {
         // iOS sometimes needs a forced re-render after orientation change
         setTimeout(() => {
           setDimensions({ width, height });
-        }, 100);
+          console.log('✅ iOS dimensions force-updated');
+        }, 150);
+      }
+      
+      // Reset controls visibility after orientation change
+      if (isFullscreen && isPlaying) {
+        setShowControls(true);
+        resetControlsTimer();
       }
     };
 
@@ -156,7 +191,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
 
     const subscription = Dimensions.addEventListener('change', updateDimensions);
     return () => subscription?.remove();
-  }, []);
+  }, [isFullscreen, isPlaying, resetControlsTimer]);
   
   // Load saved quality preference
   useEffect(() => {
@@ -174,24 +209,41 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     loadQualityPreference();
   }, []);
   
-  // Handle initial orientation
+  // Handle initial orientation and cleanup
   useEffect(() => {
-    // Ensure we start in portrait mode unless already in fullscreen
-    if (!isFullscreen) {
-      exitFullscreenOrientation();
-      if (Platform.OS === 'android') {
-        StatusBar.setHidden(false);
-      }
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      if (isFullscreen) {
-        exitFullscreenOrientation();
-        if (Platform.OS === 'android') {
-          StatusBar.setHidden(false);
+    // Initialize proper orientation state
+    const initializeOrientation = async () => {
+      try {
+        if (!isFullscreen) {
+          console.log('🔧 Initializing portrait orientation');
+          await exitFullscreenOrientation();
+          if (Platform.OS === 'android') {
+            StatusBar.setHidden(false, 'slide');
+          }
         }
+      } catch (error) {
+        console.warn('⚠️ Failed to initialize orientation:', error);
       }
+    };
+    
+    initializeOrientation();
+    
+    // Cleanup on unmount - always return to portrait
+    return () => {
+      const cleanup = async () => {
+        try {
+          if (isFullscreen) {
+            console.log('🧹 Cleaning up fullscreen state');
+            await exitFullscreenOrientation();
+            if (Platform.OS === 'android') {
+              StatusBar.setHidden(false, 'slide');
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Cleanup error:', error);
+        }
+      };
+      cleanup();
     };
   }, [isFullscreen]);
   
@@ -235,17 +287,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     Alert.alert('Quality Changed', `Video quality set to: ${qualityNames[quality]}`);
   }, []);
   
-  const resetControlsTimer = useCallback(() => {
-    if (hideControlsTimer.current) {
-      clearTimeout(hideControlsTimer.current);
-    }
-    setShowControls(true);
-    hideControlsTimer.current = setTimeout(() => {
-      if (isPlaying) {
-        setShowControls(false);
-      }
-    }, 3000);
-  }, [isPlaying]);
+
 
   // Auto-hide controls animation
   useEffect(() => {
@@ -328,50 +370,73 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   };
 
   const handleSeek = (seekTime: number) => {
-    // Use player instance if available, otherwise try the ref method
-    if (canSeek && player) {
+    console.log('🎯 ModernVideoPlayer handleSeek called:', {
+      seekTime,
+      canSeek,
+      hasPlayer: !!player,
+      hasOnSeek: !!onSeek,
+      videoType,
+      isCompleted
+    });
+    
+    if (!canSeek) {
+      console.log('🚫 Seeking blocked - canSeek is false');
+      return;
+    }
+
+    // Always use the onSeek prop if available (preferred method)
+    if (onSeek) {
+      console.log('✅ Using onSeek prop to seek to:', seekTime);
+      onSeek(seekTime);
+      return;
+    }
+
+    // Fallback to direct player control
+    if (player) {
+      console.log('✅ Using player.currentTime to seek to:', seekTime);
       player.currentTime = seekTime;
-    } else if (canSeek && videoRef.current && 'setPositionAsync' in videoRef.current) {
-      // Fallback to ref method if player is not available
-      // This maintains backward compatibility
-      console.warn('Using deprecated setPositionAsync method');
-      // @ts-ignore - for backward compatibility
-      videoRef.current.setPositionAsync?.(seekTime * 1000);
+    } else {
+      console.warn('⚠️ No seek method available');
     }
   };
 
   const handleProgressBarPress = (event: any) => {
-    console.log('🎯 Seek Debug - Progress bar pressed:', {
+    console.log('🎯 Progress bar pressed:', {
       canSeek,
       duration,
       currentTime,
-      eventType: typeof event?.nativeEvent,
+      videoType,
+      isCompleted,
       hasLocationX: !!event?.nativeEvent?.locationX
     });
     
     if (!canSeek) {
-      console.log('🚫 Seek blocked - canSeek is false');
+      console.log('🚫 Seek blocked - Video type:', videoType, 'Completed:', isCompleted);
+      // Show user feedback for why seeking is blocked
+      if (videoType === 'trackable' || videoType === 'trackableRandom' || videoType === 'interactive') {
+        console.log('ℹ️ Seeking blocked: Complete the video first to enable seeking');
+      }
+      return;
+    }
+    
+    if (!event?.nativeEvent?.locationX || duration <= 0) {
+      console.warn('⚠️ Invalid progress bar press event or duration');
       return;
     }
     
     const { locationX } = event.nativeEvent;
-    const progressBarWidth = dimensions.width - (getResponsiveSize(40) * 2); // Account for padding
+    const progressBarWidth = dimensions.width - (getResponsiveSize(40) * 2);
     const seekPercentage = Math.max(0, Math.min(1, locationX / progressBarWidth));
     const seekTime = seekPercentage * duration;
     
-    console.log('🎯 Seek Debug - Calculated values:', {
+    console.log('🎯 Seeking to:', {
       locationX,
       progressBarWidth,
-      seekPercentage,
-      seekTime,
-      onSeekType: typeof onSeek
+      seekPercentage: (seekPercentage * 100).toFixed(1) + '%',
+      seekTime: seekTime.toFixed(1) + 's'
     });
     
-    if (onSeek) {
-      onSeek(seekTime);
-    } else {
-      console.warn('⚠️ onSeek prop not provided');
-    }
+    handleSeek(seekTime);
     resetControlsTimer();
   };
 
@@ -380,8 +445,11 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   };
 
   const handleVideoPress = () => {
+    console.log('🎬 Video pressed - toggling controls:', !showControls);
     setShowControls(!showControls);
-    resetControlsTimer();
+    if (!showControls) {
+      resetControlsTimer();
+    }
   };
 
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -406,15 +474,24 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     }
   }, [currentTime, duration, progress, isPlaying]);
 
-  // Handle fullscreen toggle with orientation switching
+  // Handle fullscreen toggle with enhanced orientation switching
   const handleFullscreenToggle = useCallback(async () => {
     try {
       const newFullscreen = !isFullscreen;
       
+      console.log('🔄 Fullscreen toggle:', {
+        from: isFullscreen ? 'fullscreen' : 'portrait',
+        to: newFullscreen ? 'fullscreen' : 'portrait',
+        platform: Platform.OS
+      });
+      
+      // Show controls during transition for better UX
+      setShowControls(true);
+      
       // Platform-specific pre-orientation change handling
       if (Platform.OS === 'ios') {
         // iOS needs a small delay for smoother transitions
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
       
       // Update state first for immediate UI feedback
@@ -423,56 +500,86 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       // Switch orientation based on fullscreen state
       let orientationSuccess = false;
       if (newFullscreen) {
+        console.log('📱 Entering fullscreen landscape mode');
         orientationSuccess = await enterFullscreenOrientation();
-        // Hide status bar on Android
+        // Hide status bar for immersive experience
         if (Platform.OS === 'android') {
-          StatusBar.setHidden(true);
+          StatusBar.setHidden(true, 'slide');
         }
       } else {
+        console.log('📱 Exiting to portrait mode');
         orientationSuccess = await exitFullscreenOrientation();
-        // Show status bar on Android
+        // Show status bar when returning to portrait
         if (Platform.OS === 'android') {
-          StatusBar.setHidden(false);
+          StatusBar.setHidden(false, 'slide');
         }
       }
       
-      // Handle orientation failure
+      // Handle orientation failure with better error recovery
       if (!orientationSuccess) {
-        console.warn('Orientation change failed, reverting state');
+        console.warn('⚠️ Orientation change failed, reverting state');
         setIsFullscreen(!newFullscreen);
+        
+        // Revert status bar state
+        if (Platform.OS === 'android') {
+          StatusBar.setHidden(!newFullscreen, 'slide');
+        }
+        
         Alert.alert(
           'Orientation Error',
-          'Unable to change screen orientation. Please check your device settings.',
+          'Unable to change screen orientation. Please check your device settings or try rotating your device manually.',
           [{ text: 'OK' }]
         );
         return;
       }
       
-      // Notify parent component
+      // Notify parent component about fullscreen change
       onFullscreenChange?.(newFullscreen);
       
-      // Platform-specific post-orientation handling
+      // Enhanced platform-specific post-orientation handling
+      const handlePostOrientation = () => {
+        const { width, height } = Dimensions.get('window');
+        setDimensions({ width, height });
+        
+        console.log('✅ Fullscreen transition completed:', {
+          newDimensions: { width, height },
+          isFullscreen: newFullscreen,
+          isLandscape: width > height
+        });
+        
+        // Reset controls timer after transition
+        if (newFullscreen && isPlaying) {
+          resetControlsTimer();
+        }
+      };
+      
       if (Platform.OS === 'android') {
-        // Force a layout update on Android
-        setTimeout(() => {
-          const { width, height } = Dimensions.get('window');
-          setDimensions({ width, height });
-        }, 200);
+        // Android needs more time for layout updates
+        setTimeout(handlePostOrientation, 300);
+      } else {
+        // iOS can handle it faster
+        setTimeout(handlePostOrientation, 200);
       }
+      
     } catch (error) {
-      console.error('Error toggling fullscreen:', error);
+      console.error('❌ Error toggling fullscreen:', error);
+      
+      // Revert state on error
+      setIsFullscreen(!isFullscreen);
+      
       Alert.alert(
         'Fullscreen Error',
-        'An error occurred while changing fullscreen mode.',
+        'An error occurred while changing fullscreen mode. Please try again.',
         [{ text: 'OK' }]
       );
     }
-  }, [isFullscreen, onFullscreenChange]);
+  }, [isFullscreen, onFullscreenChange, isPlaying, resetControlsTimer]);
   
-  // Handle Android back button
+  // Enhanced Android back button handling
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       if (isFullscreen) {
+        console.log('📱 Back button pressed in fullscreen - exiting to portrait');
         handleFullscreenToggle();
         return true; // Prevent default back behavior
       }
@@ -548,9 +655,24 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   height: getResponsiveSize(48),
                   borderRadius: getResponsiveSize(24)
                 }]}
-                onPress={() => {
-                  onClose?.();
-                  handleControlPress();
+                onPress={async () => {
+                  console.log('❌ Close button pressed - exiting fullscreen');
+                  try {
+                    // If in fullscreen, exit fullscreen first
+                    if (isFullscreen) {
+                      await handleFullscreenToggle();
+                      // Small delay to ensure orientation change completes
+                      setTimeout(() => {
+                        onClose?.();
+                      }, 300);
+                    } else {
+                      onClose?.();
+                    }
+                    handleControlPress();
+                  } catch (error) {
+                    console.error('❌ Error closing video player:', error);
+                    onClose?.(); // Fallback close
+                  }
                 }}
               >
                 <Ionicons name="close" size={getResponsiveSize(24)} color="#000" />
@@ -603,7 +725,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           ) : (
             <>
               <TouchableOpacity 
-                style={[styles.sideControlButton, {
+                style={[styles.landscapeControlButton, {
                   width: getResponsiveSize(44),
                   height: getResponsiveSize(44),
                   borderRadius: getResponsiveSize(22)
@@ -613,10 +735,10 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   handleControlPress();
                 }}
               >
-                <Ionicons name={isFullscreen ? "contract" : "expand"} size={getResponsiveSize(22)} color="#000" />
+                <Ionicons name={isFullscreen ? "contract" : "expand"} size={getResponsiveSize(22)} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.sideControlButton, {
+                style={[styles.landscapeControlButton, {
                   width: getResponsiveSize(44),
                   height: getResponsiveSize(44),
                   borderRadius: getResponsiveSize(22)
@@ -626,10 +748,10 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   handleControlPress();
                 }}
               >
-                <Ionicons name="close" size={getResponsiveSize(22)} color="#000" />
+                <Ionicons name="close" size={getResponsiveSize(22)} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.sideControlButton, {
+                style={[styles.landscapeControlButton, {
                   width: getResponsiveSize(44),
                   height: getResponsiveSize(44),
                   borderRadius: getResponsiveSize(22)
@@ -642,12 +764,12 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                 <Ionicons 
                   name={isFavorite ? "heart" : "heart-outline"} 
                   size={getResponsiveSize(22)} 
-                  color={isFavorite ? "#ff3b30" : "#000"} 
+                  color={isFavorite ? "#ff3b30" : "#fff"} 
                 />
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.sideControlButton, {
+                style={[styles.landscapeControlButton, {
                   width: getResponsiveSize(44),
                   height: getResponsiveSize(44),
                   borderRadius: getResponsiveSize(22)
@@ -657,10 +779,10 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   handleControlPress();
                 }}
               >
-                <Ionicons name="settings-outline" size={getResponsiveSize(22)} color="#000" />
+                <Ionicons name="settings" size={getResponsiveSize(20)} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.sideControlButton, {
+                style={[styles.landscapeControlButton, {
                   width: getResponsiveSize(44),
                   height: getResponsiveSize(44),
                   borderRadius: getResponsiveSize(22)
@@ -670,7 +792,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   handleControlPress();
                 }}
               >
-                <Ionicons name="download-outline" size={getResponsiveSize(22)} color="#000" />
+                <Ionicons name="download" size={getResponsiveSize(20)} color="#fff" />
               </TouchableOpacity>
             </>
           )}
@@ -861,6 +983,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     zIndex: 999,
     elevation: 999, // For Android
+    // Ensure fullscreen container covers everything
+    width: '100%',
+    height: '100%',
   },
   controlsOverlay: {
     position: 'absolute',
@@ -902,10 +1027,23 @@ const styles = StyleSheet.create({
     top: '50%',
     transform: [{ translateY: -150 }],
     gap: 8,
+    zIndex: 1000, // Ensure controls are above video
   },
   rightSideControlsPortrait: {
     top: 60,
     transform: [{ translateY: 0 }],
+    right: 20, // Better positioning for portrait
+  },
+  landscapeControlButton: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   sideControlButton: {
     backgroundColor: 'rgba(255,255,255,0.95)',

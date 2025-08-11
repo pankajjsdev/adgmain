@@ -1323,24 +1323,7 @@ export default function VideoDetailScreen() {
               />
             </TouchableOpacity>
             
-            {/* Duration badge */}
-            <View style={{
-              position: 'absolute' as const,
-              bottom: 20,
-              right: 20,
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 16,
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            }}>
-              <Text style={{
-                color: 'white',
-                fontSize: 14,
-                fontWeight: '600' as const,
-              }}>
-                {formatDuration(videoData?.duration || 0)}
-              </Text>
-            </View>
+          
           </ImageBackground>
         </View>
 

@@ -667,9 +667,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
     
     try {
-      // Convert seconds to milliseconds for expo-video
-      const timeInMs = time * 1000;
-      await playerInstance.seekByAsync(timeInMs);
+      // Use seekTo method for expo-video (takes seconds, not milliseconds)
+      playerInstance.seekTo(time);
       console.log('✅ Seek successful to:', time, 'seconds');
     } catch (error) {
       console.error('❌ Seek failed:', error);
