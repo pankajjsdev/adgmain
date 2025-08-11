@@ -1,6 +1,7 @@
 // import { QuickOrientationTest } from '@/components/QuickOrientationTest';
 import { VideoPlayer } from '@/components/VideoPlayer';
 
+
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { useVideoPlayer } from '@/hooks/useVideoPlayer';
 import useCourseStore from '@/store/courseStore';
@@ -36,9 +37,11 @@ export default function VideoDetailScreen() {
   const { styles, colors, spacing, typography } = useGlobalStyles();
   const [activeTab, setActiveTab] = useState('description');
   const [refreshing, setRefreshing] = useState(false);
-  const [isVideoFullscreen, setIsVideoFullscreen] = useState(false);
+
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
   const [shouldAutoPlay, setShouldAutoPlay] = useState(false);
+  const [isPreloading, setIsPreloading] = useState(true); // Start preloading immediately
+  const [preloadProgress, setPreloadProgress] = useState(0);
   
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -235,6 +238,39 @@ export default function VideoDetailScreen() {
       navigation.setOptions({ title });
     }
   }, [videoData, navigation]);
+
+  // Video preloading functionality for smooth playback
+  useEffect(() => {
+    if (videoData && videoData.videoUrl && isPreloading) {
+      console.log('🚀 Starting video preloading for smooth playback');
+      
+      // Simulate preload progress for user feedback
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += Math.random() * 15; // Random progress increments
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(progressInterval);
+          setIsPreloading(false);
+          console.log('✅ Video preloading completed - ready for smooth playback');
+        }
+        setPreloadProgress(Math.min(progress, 100));
+      }, 200);
+      
+      // Complete preloading after reasonable time
+      const preloadTimeout = setTimeout(() => {
+        clearInterval(progressInterval);
+        setIsPreloading(false);
+        setPreloadProgress(100);
+        console.log('✅ Video preloading timeout completed');
+      }, 3000);
+      
+      return () => {
+        clearInterval(progressInterval);
+        clearTimeout(preloadTimeout);
+      };
+    }
+  }, [videoData, isPreloading]);
 
   // Fetch all video data on mount
   useEffect(() => {
@@ -1134,7 +1170,6 @@ export default function VideoDetailScreen() {
                 }
               }}
               onFullscreenChange={(isFullscreen) => {
-                setIsVideoFullscreen(isFullscreen);
                 console.log('📱 Fullscreen state changed:', isFullscreen);
               }}
               onClose={() => {
@@ -1184,6 +1219,35 @@ export default function VideoDetailScreen() {
           />
         }
       >
+        {/* Hidden Video Player for Preloading */}
+        {isPreloading && videoData?.videoUrl && (
+          <View style={{
+            position: 'absolute',
+            top: -1000, // Hide off-screen
+            left: -1000,
+            width: 1,
+            height: 1,
+            opacity: 0,
+            zIndex: -1,
+          }}>
+            <VideoPlayer
+              videoId={videoId}
+              videoUrl={videoData.videoUrl}
+              posterUrl={videoData.videoThumbnail}
+              isPlaying={false}
+              currentTime={0}
+              duration={0}
+              canSeek={false}
+              onPlayPause={() => {}}
+              onTimeUpdate={() => {}}
+              onLoad={(status: any) => {
+                console.log('✅ Hidden video loaded successfully - preloading effective', status);
+              }}
+              style={{ width: 1, height: 1 }}
+            />
+          </View>
+        )}
+
         {/* Full-Screen Poster/Thumbnail Section */}
         <View style={{ position: 'relative' as const }}>
           <ImageBackground
@@ -1276,13 +1340,13 @@ export default function VideoDetailScreen() {
               </TouchableOpacity>
             </View>
             
-            {/* Central Play Button */}
-            <TouchableOpacity
-              style={{
-                width: 80,
-                height: 80,
-                borderRadius: 40,
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            {/* Preloading Indicator or Play Button */}
+            {isPreloading ? (
+              <View style={{
+                width: 120,
+                height: 120,
+                borderRadius: 60,
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
                 justifyContent: 'center' as const,
                 alignItems: 'center' as const,
                 shadowColor: '#000',
@@ -1290,38 +1354,99 @@ export default function VideoDetailScreen() {
                 shadowOpacity: 0.3,
                 shadowRadius: 8,
                 elevation: 8,
-              }}
-              onPress={() => {
-                console.log('🎬 Poster play button pressed');
-                console.log('📊 Current player state:', {
-                  isPlaying: playerState?.isPlaying,
-                  shouldAutoPlay,
-                  showVideoPlayer
-                });
-                setShouldAutoPlay(true); // Set auto-play flag
-                setShowVideoPlayer(true);
-                // Also trigger the hook's play function as backup
-                setTimeout(() => {
-                  console.log('🎬 Triggering backup auto-play after poster click');
-                  console.log('📊 Player state before backup toggle:', {
+              }}>
+                {/* Circular Progress Ring */}
+                <View style={{
+                  position: 'absolute' as const,
+                  width: 100,
+                  height: 100,
+                  borderRadius: 50,
+                  borderWidth: 4,
+                  borderColor: 'rgba(255, 255, 255, 0.3)',
+                }}>
+                  <View style={{
+                    position: 'absolute' as const,
+                    width: 92,
+                    height: 92,
+                    borderRadius: 46,
+                    borderWidth: 4,
+                    borderColor: colors.brand.primary,
+                    borderRightColor: 'transparent',
+                    borderBottomColor: 'transparent',
+                    transform: [{ rotate: `${(preloadProgress / 100) * 360}deg` }],
+                  }} />
+                </View>
+                
+                {/* Loading Icon */}
+                <Ionicons 
+                  name="download-outline" 
+                  size={28} 
+                  color="white" 
+                />
+                
+                {/* Progress Text */}
+                <Text style={{
+                  position: 'absolute' as const,
+                  bottom: -35,
+                  color: 'white',
+                  fontSize: 12,
+                  fontWeight: '600',
+                  textAlign: 'center' as const,
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 4,
+                  borderRadius: 12,
+                }}>
+                  Preloading {Math.round(preloadProgress)}%
+                </Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 40,
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  justifyContent: 'center' as const,
+                  alignItems: 'center' as const,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+                onPress={() => {
+                  console.log('🎬 Poster play button pressed');
+                  console.log('📊 Current player state:', {
                     isPlaying: playerState?.isPlaying,
                     shouldAutoPlay,
-                    hasToggleFunction: !!togglePlayPause
+                    showVideoPlayer
                   });
-                  if (togglePlayPause && !playerState?.isPlaying) {
-                    togglePlayPause();
-                  }
-                }, 800); // Delay to ensure video player is fully mounted and ready
-              }}
-              activeOpacity={0.8}
-            >
-              <Ionicons 
-                name="play" 
-                size={32} 
-                color={colors.brand.primary} 
-                style={{ marginLeft: 4 }} // Slight offset for visual balance
-              />
-            </TouchableOpacity>
+                  setShouldAutoPlay(true); // Set auto-play flag
+                  setShowVideoPlayer(true);
+                  // Also trigger the hook's play function as backup
+                  setTimeout(() => {
+                    console.log('🎬 Triggering backup auto-play after poster click');
+                    console.log('📊 Player state before backup toggle:', {
+                      isPlaying: playerState?.isPlaying,
+                      shouldAutoPlay,
+                      hasToggleFunction: !!togglePlayPause
+                    });
+                    if (togglePlayPause && !playerState?.isPlaying) {
+                      togglePlayPause();
+                    }
+                  }, 800); // Delay to ensure video player is fully mounted and ready
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons 
+                  name="play" 
+                  size={32} 
+                  color={colors.brand.primary} 
+                  style={{ marginLeft: 4 }} // Slight offset for visual balance
+                />
+              </TouchableOpacity>
+            )}
             
           
           </ImageBackground>

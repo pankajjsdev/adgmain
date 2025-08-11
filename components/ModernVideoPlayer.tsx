@@ -98,6 +98,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const [dimensions, setDimensions] = useState({ width: screenWidth, height: screenHeight });
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>('auto');
   const [isBuffering, setIsBuffering] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Initial loading state
   const [bufferStartTime, setBufferStartTime] = useState<number | null>(null);
   const [lastTrackedTime, setLastTrackedTime] = useState(0);
   const [milestonesTracked, setMilestonesTracked] = useState<number[]>([]);
@@ -325,6 +326,20 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       }
     };
   }, [isPlaying, resetControlsTimer, videoId, currentTime, duration, hasStarted]);
+
+  // Handle video loading and buffering states
+  useEffect(() => {
+    // Set loading to false when video starts playing or has duration
+    if (duration > 0 && currentTime >= 0) {
+      setIsLoading(false);
+    }
+    
+    // Handle buffering state changes
+    if (isPlaying && currentTime > 0 && !isBuffering) {
+      // Video is playing normally, not buffering
+      setIsLoading(false);
+    }
+  }, [duration, currentTime, isPlaying, isBuffering]);
 
   // Track volume changes
   useEffect(() => {
@@ -658,6 +673,26 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           allowsPictureInPicture={false}
         />
       )}
+      
+      {/* Video Loading/Buffering Overlay */}
+      {(isLoading || isBuffering) && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <View style={styles.spinner}>
+              <Ionicons 
+                name="reload" 
+                size={getResponsiveSize(32)} 
+                color="#fff" 
+                style={styles.spinnerIcon}
+              />
+            </View>
+            <Text style={[styles.loadingText, { fontSize: getResponsiveSize(14) }]}>
+              {isLoading ? 'Loading video...' : 'Buffering...'}
+            </Text>
+          </View>
+        </View>
+      )}
+      
       {/* Dark overlay when controls are shown */}
       <Animated.View 
         style={[
@@ -1321,5 +1356,36 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: '#fff',
+  },
+  // Loading overlay styles
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999, // Above video but below controls
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinner: {
+    marginBottom: 12,
+  },
+  spinnerIcon: {
+    opacity: 0.9,
+  },
+  loadingText: {
+    color: '#fff',
+    fontWeight: '500',
+    textAlign: 'center',
+    opacity: 0.9,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 });
