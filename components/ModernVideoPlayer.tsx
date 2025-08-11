@@ -108,6 +108,7 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const [lastProgressUpdate, setLastProgressUpdate] = useState(0);
   const [lastVolume, setLastVolume] = useState(volume);
   const [lastPlaybackSpeed, setLastPlaybackSpeed] = useState(playbackSpeed);
+  const [hasVideoEnded, setHasVideoEnded] = useState(false);
 
   // Platform-specific orientation detection
   const getActualOrientation = useCallback(() => {
@@ -348,6 +349,24 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     }
   }, [isCompleted, videoId, duration, currentTime]);
 
+  // Detect video end based on current time and duration
+  useEffect(() => {
+    if (duration > 0 && currentTime > 0) {
+      const timeRemaining = duration - currentTime;
+      const hasEnded = timeRemaining <= 0.5; // Consider ended if less than 0.5 seconds remaining
+      
+      if (hasEnded && !hasVideoEnded) {
+        console.log('🎬 Video has ended - showing replay button');
+        setHasVideoEnded(true);
+        setShowControls(true); // Show controls when video ends
+        VideoAnalytics.trackVideoPlaybackCompleted(videoId, duration, currentTime);
+      } else if (!hasEnded && hasVideoEnded) {
+        // Reset end state if video is seeked back
+        setHasVideoEnded(false);
+      }
+    }
+  }, [currentTime, duration, hasVideoEnded, videoId]);
+
   // Track progress milestones (25%, 50%, 75%)
   useEffect(() => {
     if (duration > 0 && currentTime > 0) {
@@ -450,6 +469,41 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     if (!showControls) {
       resetControlsTimer();
     }
+  };
+
+  const handleReplay = () => {
+    console.log('🔄 Replay button pressed - restarting video');
+    
+    // Track replay analytics with proper data
+    VideoAnalytics.trackVideoReplayed(videoId, currentTime, duration, {
+      video_type: videoType,
+      was_completed: isCompleted,
+      replay_from_time: currentTime,
+      video_url: videoUrl || currentSourceUrl,
+      platform: Platform.OS
+    });
+    
+    // Reset video end state
+    setHasVideoEnded(false);
+    
+    // Ensure video starts from the very beginning
+    console.log('🔄 Seeking to start (0 seconds) for replay');
+    handleSeek(0);
+    
+    // Small delay to ensure seek completes before starting playback
+    setTimeout(() => {
+      console.log('🔄 Starting playback after seek');
+      if (!isPlaying) {
+        onPlayPause(); // Start playing if not already playing
+      }
+      resetControlsTimer();
+      
+      // Track that video playback started from replay
+      VideoAnalytics.trackVideoPlaybackStarted(videoId, 0, { 
+        action: 'replay',
+        video_type: videoType 
+      });
+    }, 100);
   };
 
   const progress = duration > 0 ? currentTime / duration : 0;
@@ -824,14 +878,19 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
             </View>
           </TouchableOpacity>
           
-          {/* Center Play/Pause Button */}
+          {/* Center Play/Pause/Replay Button */}
           <TouchableOpacity 
             style={styles.centerPlayButton}
             onPress={() => {
-              console.log('🎮 ModernVideoPlayer: Play/pause button pressed, current isPlaying:', isPlaying);
-              console.log('🎮 ModernVideoPlayer: onPlayPause function type:', typeof onPlayPause);
-              onPlayPause();
-              handleControlPress();
+              if (hasVideoEnded) {
+                console.log('🔄 Replay button pressed');
+                handleReplay();
+              } else {
+                console.log('🎮 ModernVideoPlayer: Play/pause button pressed, current isPlaying:', isPlaying);
+                console.log('🎮 ModernVideoPlayer: onPlayPause function type:', typeof onPlayPause);
+                onPlayPause();
+                handleControlPress();
+              }
             }}
           >
             <View style={[styles.playButtonInner, {
@@ -840,10 +899,10 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
               borderRadius: getResponsiveSize(35)
             }]}>
               <Ionicons 
-                name={isPlaying ? "pause" : "play"} 
+                name={hasVideoEnded ? "refresh" : (isPlaying ? "pause" : "play")} 
                 size={getResponsiveSize(40)} 
                 color="#000" 
-                style={{ marginLeft: isPlaying ? 0 : 4 }}
+                style={{ marginLeft: (isPlaying && !hasVideoEnded) ? 0 : 4 }}
               />
             </View>
           </TouchableOpacity>

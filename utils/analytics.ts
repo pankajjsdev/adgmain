@@ -49,6 +49,7 @@ export const ANALYTICS_EVENTS = {
   VIDEO_PAUSED: 'video_paused',
   VIDEO_RESUMED: 'video_resumed',
   VIDEO_SEEKED: 'video_seeked',
+  VIDEO_REPLAYED: 'video_replayed',
   
   // Assignments & Tests
   ASSIGNMENT_OPENED: 'assignment_opened',
@@ -724,6 +725,16 @@ export const VideoAnalytics = {
       video_id: videoId,
       from_volume: fromVolume,
       to_volume: toVolume,
+      ...properties
+    }),
+
+  trackVideoReplayed: (videoId: string, previousWatchTime: number, duration: number, properties?: Record<string, any>) => 
+    trackEvent(ANALYTICS_EVENTS.VIDEO_REPLAYED, {
+      video_id: videoId,
+      previous_watch_time_seconds: previousWatchTime,
+      duration_seconds: duration,
+      completion_percentage: duration > 0 ? Math.round((previousWatchTime / duration) * 100) : 0,
+      replay_timestamp: Date.now(),
       ...properties
     }),
 
