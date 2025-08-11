@@ -3,6 +3,7 @@ import { ActivityIndicator, View, Text, TouchableOpacity, Image } from 'react-na
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { usePerformanceMonitoring, ImageOptimizer } from '@/utils/performance';
 import * as Analytics from '@/utils/analytics';
+import type { VideoPlayerProps } from '@/components/VideoPlayer';
 
 // Lazy loaded components for code splitting
 export const LazyVideoPlayer = lazy(() => import('@/components/VideoPlayer').then(module => ({ default: module.VideoPlayer })));
@@ -51,7 +52,7 @@ interface CourseCardProps {
 }
 
 export const OptimizedCourseCard = memo<CourseCardProps>(({ course, onPress }) => {
-  const { styles, colors } = useGlobalStyles();
+  const { colors } = useGlobalStyles();
   const { measureOperation } = usePerformanceMonitoring('CourseCard');
   
   const handlePress = useCallback(() => {
@@ -163,8 +164,6 @@ export const OptimizedCourseCard = memo<CourseCardProps>(({ course, onPress }) =
 OptimizedCourseCard.displayName = 'OptimizedCourseCard';
 
 // Optimized Video Player with Suspense wrapper
-import type { VideoPlayerProps } from '@/components/VideoPlayer';
-
 export const SuspenseVideoPlayer = memo(({ ...props }: VideoPlayerProps) => (
   <Suspense fallback={<LoadingFallback componentName="Video Player" />}>
     <LazyVideoPlayer {...props} />

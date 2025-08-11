@@ -170,7 +170,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       videoSource: currentSource, 
       videoFormat: currentSource.format 
     };
-  }, [fallbackSources, currentSourceIndex]);
+  }, [fallbackSources, currentSourceIndex, videoUrl]);
 
   // Create video player instance with expo-video (only if URL is valid)
   const internalPlayer = useVideoPlayer(
