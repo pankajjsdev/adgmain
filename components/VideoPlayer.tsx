@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Platform, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { ModernVideoPlayer } from './ModernVideoPlayer';
 
-interface VideoPlayerProps {
+export interface VideoPlayerProps {
   videoId: string; // Add videoId prop for analytics tracking
   videoUrl: string;
   posterUrl?: string;

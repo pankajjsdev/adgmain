@@ -2,6 +2,9 @@ import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import { Question } from '@/types/video';
 import { VideoAnalytics } from '@/utils/analytics';
 import { enterFullscreenOrientation, exitFullscreenOrientation } from '@/utils/orientationUtils';
+// Performance and monitoring utilities
+// import { usePerformanceMonitoring } from '@/utils/performance';
+// import { useMonitoring, ErrorType, ErrorSeverity } from '@/utils/monitoring';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { VideoPlayer, VideoView } from 'expo-video';
@@ -97,16 +100,10 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const [isFavorite, setIsFavorite] = useState(false);
   const [dimensions, setDimensions] = useState({ width: screenWidth, height: screenHeight });
   const [selectedQuality, setSelectedQuality] = useState<VideoQuality>('auto');
-  const [isBuffering, setIsBuffering] = useState(false);
+  const [isBuffering] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // Initial loading state
-  const [bufferStartTime, setBufferStartTime] = useState<number | null>(null);
-  const [lastTrackedTime, setLastTrackedTime] = useState(0);
   const [milestonesTracked, setMilestonesTracked] = useState<number[]>([]);
-  const [fullscreenStartTime, setFullscreenStartTime] = useState<number | null>(null);
-  const [lastSeekTime, setLastSeekTime] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
-  const [progressUpdateTimer, setProgressUpdateTimer] = useState<NodeJS.Timeout | null>(null);
-  const [lastProgressUpdate, setLastProgressUpdate] = useState(0);
   const [lastVolume, setLastVolume] = useState(volume);
   const [lastPlaybackSpeed, setLastPlaybackSpeed] = useState(playbackSpeed);
   const [hasVideoEnded, setHasVideoEnded] = useState(false);
