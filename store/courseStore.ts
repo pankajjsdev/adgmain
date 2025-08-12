@@ -761,6 +761,16 @@ const useCourseStore = create<CourseState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await apiGet<any>(`/video/student/video/${videoId}`);
+      
+      console.log('🎥 Video Details API Response:', {
+        videoId,
+        hasQuestions: !!response.data?.questions,
+        questionsCount: response.data?.questions?.length || 0,
+        videoType: response.data?.videoType,
+        videoTitle: response.data?.videoTitle,
+        responseKeys: Object.keys(response.data || {})
+      });
+      
       set(state => ({ 
         videoDetails: {
           ...state.videoDetails,
@@ -796,20 +806,35 @@ const useCourseStore = create<CourseState>((set, get) => ({
       console.log('🎯 Video Questions API Response:', {
         videoId,
         totalQuestions: questionsData.length,
-        questions: questionsData
+        questions: questionsData.map((q: any) => ({
+          id: q._id,
+          timeToShowQuestion: q.meta?.timeToShowQuestion,
+          questionType: q.questionType,
+          questionText: q.question?.text?.substring(0, 50) + '...'
+        }))
       });
       
       // Store questions in videoDetails
-      set(state => ({ 
-        videoDetails: {
-          ...state.videoDetails,
-          [videoId]: {
-            ...state.videoDetails[videoId],
-            questions: questionsData
-          }
-        },
-        loading: false 
-      }));
+      set(state => {
+        const existingVideoData = state.videoDetails[videoId] || {};
+        console.log('🔄 Merging questions into videoDetails:', {
+          videoId,
+          existingVideoDataKeys: Object.keys(existingVideoData),
+          hasExistingVideoData: !!existingVideoData,
+          questionsBeingAdded: questionsData.length
+        });
+        
+        return {
+          videoDetails: {
+            ...state.videoDetails,
+            [videoId]: {
+              ...existingVideoData,
+              questions: questionsData
+            }
+          },
+          loading: false 
+        };
+      });
     } catch (error: any) {
       console.error('❌ Failed to fetch video questions:', error);
       set({ loading: false, error: 'Failed to fetch video questions' });

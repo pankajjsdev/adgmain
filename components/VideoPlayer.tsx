@@ -675,22 +675,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [playerInstance, currentTime]);
 
-  // Debug: Check video progress every 3 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (playerInstance) {
-        console.log('🔍 Video Progress Check:', {
-          currentTime: playerInstance.currentTime,
-          duration: playerInstance.duration,
-          playing: playerInstance.playing,
-          status: playerInstance.status,
-          isPlaying: isPlaying
-        });
-      }
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [playerInstance, isPlaying]);
+  
 
   // Show error state for invalid URLs
   if (!isValidVideoUrl) {

@@ -726,10 +726,13 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     // Tab Content Styles
     tabContent: {
       backgroundColor: colors.surface.card,
-      margin: Spacing.base,
-      borderRadius: BorderRadius.lg,
-      padding: Spacing.xl,
-      ...Shadows.sm,
+      margin: Spacing.md,
+      marginBottom: Spacing.xl,
+      borderRadius: BorderRadius.xl,
+      padding: Spacing.lg,
+      ...Shadows.md,
+      borderWidth: 1,
+      borderColor: colors.surface.overlay + '40',
     },
     
     // Info Card Styles

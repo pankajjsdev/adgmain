@@ -1,32 +1,42 @@
 import useCourseStore from '@/store/courseStore';
 import { VideoData, VideoPlayerState, VideoProgress } from '@/types/video';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VideoPlayer } from 'expo-video';
 
 interface UseVideoPlayerProps {
   videoData: VideoData;
-  onVideoComplete?: () => void;
   onQuestionAnswer?: (questionId: string, answer: string, correct: boolean) => void;
 }
 
-export const useVideoPlayer = ({ 
-  videoData, 
-  onVideoComplete, 
-  onQuestionAnswer 
-}: UseVideoPlayerProps) => {
+export const useVideoPlayer = ({ videoData, onQuestionAnswer }: UseVideoPlayerProps) => {
+  
+  // Debug logging for video data received by hook
+  console.log('🎬 useVideoPlayer - Received Video Data:', {
+    hasVideoData: !!videoData,
+    videoId: videoData?._id,
+    hasQuestions: !!videoData?.questions,
+    questionsCount: videoData?.questions?.length || 0,
+    videoType: videoData?.videoType,
+    questions: videoData?.questions?.map(q => ({
+      id: q._id,
+      timeToShowQuestion: q.meta?.timeToShowQuestion,
+      questionType: q.questionType
+    })) || []
+  });
+  
   const [playerState, setPlayerState] = useState<VideoPlayerState>({
     isPlaying: false,
     currentTime: 0,
-    duration: videoData?.duration || 0,
+    duration: 0,
     isLoading: false,
     showQuestion: false,
     currentQuestion: null,
-    canSeek: getCanSeek(videoData?.videoType || 'basic', false),
+    canSeek: false,
     progress: {
-      videoId: videoData?._id || '',
+      videoId: videoData._id,
       currentTime: 0,
-      duration: videoData?.duration || 0,
+      duration: 0,
       completed: false,
       answeredQuestions: []
     }
@@ -45,7 +55,7 @@ export const useVideoPlayer = ({
   // Use videoStatusData and log for debugging
   console.log('📊 Video status data:', videoStatusData);
 
-  const videoRef = useRef<VideoPlayer | null>(null);
+  const videoRef = useRef<any | null>(null);
   const questionTimeoutsRef = useRef<number[]>([]);
 
   // Get course store methods
@@ -278,6 +288,14 @@ export const useVideoPlayer = ({
 
   // Handle video time update
   const handleTimeUpdate = useCallback(async (status: any) => {
+
+     console.log('questionjfksdbfjsdbfjk', {
+      status
+
+    });
+    
+
+
     if (!status?.positionMillis || !status?.durationMillis) {
       return; // Skip invalid status updates
     }
@@ -295,7 +313,8 @@ export const useVideoPlayer = ({
       isLoading: isBuffering || !isLoaded,
       canSeek: getCanSeek(videoData?.videoType || 'basic', prev.progress.completed)
     }));
-    
+
+   
     // Set initial position once when video loads
     if (!hasSetInitialPosition && isLoaded && videoInitialPosition > 0 && Math.abs(currentTime - videoInitialPosition) > 1) {
       if (videoRef.current) {
@@ -382,8 +401,6 @@ export const useVideoPlayer = ({
           lastCorrectCheckpoint: videoData.videoType === "interactive" ? lastCorrectCheckpoint : prev?.lastCorrectCheckpoint,
           correctlyAnsweredQuestions: Array.from(correctlyAnsweredQuestions),
         }));
-        
-        onVideoComplete?.();
       } else {
         // Regular progress update - update local state
         setVideoStatusData((prev: any) => ({
@@ -399,7 +416,7 @@ export const useVideoPlayer = ({
     }
 
     setPlayerState(prev => ({ ...prev, progress: newProgress }));
-  }, [playerState.showQuestion, playerState.progress, videoData.questions, videoData._id, videoData.videoType, videoData.chapterId, videoData.courseId, alreadySubmit, correctlyAnsweredQuestions, lastCorrectCheckpoint, submission, onVideoComplete, updateVideoProgress, hasSetInitialPosition, videoInitialPosition]);
+  }, [playerState.showQuestion, playerState.progress, videoData.questions, videoData._id, videoData.videoType, videoData.chapterId, videoData.courseId, alreadySubmit, correctlyAnsweredQuestions, lastCorrectCheckpoint, submission, updateVideoProgress, hasSetInitialPosition, videoInitialPosition]);
 
   // Play/Pause controls
   const togglePlayPause = useCallback(async () => {
@@ -439,7 +456,7 @@ export const useVideoPlayer = ({
       // Reset loading state on error
       setPlayerState(prev => ({ ...prev, isLoading: false }));
     }
-  }, [playerState.isPlaying, playerState.showQuestion, videoData?.videoType, playerState.canSeek, videoRef, hasSetInitialPosition, videoInitialPosition]);
+  }, [playerState.isPlaying, playerState.showQuestion, videoData?.videoType, playerState.canSeek, videoRef]);
 
   // Seek to specific time (only if allowed)
   const seekTo = useCallback(async (time: number) => {

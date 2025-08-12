@@ -61,6 +61,17 @@ export default function VideoDetailScreen() {
   // Get video data
   const videoData: VideoData | null = videoDetails[videoId] || null;
 
+  // Debug logging for video data structure
+  console.log('🔍 VideoDetailScreen - Video Data Analysis:', {
+    videoId,
+    hasVideoData: !!videoData,
+    videoDataKeys: videoData ? Object.keys(videoData) : [],
+    hasQuestions: !!videoData?.questions,
+    questionsCount: videoData?.questions?.length || 0,
+    videoType: videoData?.videoType,
+    videoTitle: videoData?.videoTitle
+  });
+
   // Get video progress data from videoDetails
   const videoProgress = videoData?.progress || null;
 
@@ -102,44 +113,6 @@ export default function VideoDetailScreen() {
     isVideoCompleted
   } = useVideoPlayer({
     videoData: enhancedVideoData,
-    onVideoComplete: () => {
-      // Show enhanced completion feedback
-      Animated.sequence([
-        Animated.timing(fadeAnim, {
-          toValue: 0.5,
-          duration: 200,
-          useNativeDriver: true
-        }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true
-        })
-      ]).start();
-      
-      // Show completion alert with better UX
-      setTimeout(() => {
-        Alert.alert(
-          '🎉 Congratulations!',
-          'You have successfully completed this video! What would you like to do next?',
-          [
-            { 
-              text: 'Continue Learning', 
-              onPress: () => router.back(),
-              style: 'default'
-            },
-            { 
-              text: 'Replay Video', 
-              onPress: () => {
-                // Video replay logic would go here
-              },
-              style: 'cancel'
-            }
-          ],
-          { cancelable: false }
-        );
-      }, 500);
-    },
     onQuestionAnswer: (questionId: string, answer: string, correct: boolean) => {
       // Add visual feedback for question answers
       if (correct) {
@@ -277,13 +250,10 @@ export default function VideoDetailScreen() {
     const fetchAllVideoData = async () => {
       if (videoId) {
         try {
+          fetchVideoQuestions(videoId)
+          fetchVideoProgress(videoId)
           // Fetch video details first
           await fetchVideoDetails(videoId);
-          // Then fetch questions and progress in parallel
-          await Promise.all([
-            fetchVideoQuestions(videoId),
-            fetchVideoProgress(videoId)
-          ]);
         } catch (error: any) {
           Alert.alert(
             'Error',
@@ -374,6 +344,7 @@ export default function VideoDetailScreen() {
   }
  
 
+  // Filter tabs based on video type and content
   const tabs = [
     { 
       id: 'description', 
@@ -382,13 +353,14 @@ export default function VideoDetailScreen() {
       badge: null,
       color: colors.brand.primary
     },
-    { 
+    // Only show questions tab for non-basic videos that have questions
+    ...(videoData?.videoType !== 'basic' && videoData?.questions?.length > 0 ? [{
       id: 'questions', 
       title: 'Questions', 
       icon: 'help-circle-outline',
       badge: videoData?.questions?.length || 0,
       color: colors.status.warning
-    },
+    }] : []),
     { 
       id: 'resources', 
       title: 'Resources', 
@@ -403,7 +375,7 @@ export default function VideoDetailScreen() {
       badge: isVideoCompleted ? '✓' : null,
       color: colors.status.success
     },
-  ];
+  ].filter(Boolean);
 
   // Enhanced video type info with better styling and badges
   const getVideoTypeInfo = () => {
@@ -456,12 +428,19 @@ export default function VideoDetailScreen() {
               transform: [{ translateY: slideAnim }]
             }
           ]}>
-            {/* Enhanced Description Section */}
+            {/* Enhanced Description Section with Header */}
             <View style={[styles.contentCard, {
               backgroundColor: colors.surface.card,
-              borderRadius: 12,
+              borderRadius: 16,
               padding: spacing.md,
-              marginBottom: spacing.md
+              marginBottom: spacing.md,
+              shadowColor: colors.text.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 3,
+              borderWidth: 1,
+              borderColor: colors.surface.overlay + '40',
             }]}>
               <Text style={[styles.sectionTitle, {
                 fontSize: typography.fontSize.lg,
@@ -469,7 +448,7 @@ export default function VideoDetailScreen() {
                 color: colors.text.primary,
                 marginBottom: spacing.md
               }]}>
-                Description
+                Video Description
               </Text>
               <Text style={[styles.description, {
                 fontSize: typography.fontSize.base,
@@ -483,8 +462,15 @@ export default function VideoDetailScreen() {
             {/* Enhanced Video Stats */}
             <View style={[styles.statsContainer, {
               backgroundColor: colors.surface.card,
-              borderRadius: 12,
-              padding: spacing.md
+              borderRadius: 16,
+              padding: spacing.md,
+              shadowColor: colors.text.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 3,
+              borderWidth: 1,
+              borderColor: colors.surface.overlay + '40',
             }]}>
               <Text style={[styles.sectionTitle, {
                 fontSize: typography.fontSize.lg,
@@ -492,7 +478,7 @@ export default function VideoDetailScreen() {
                 color: colors.text.primary,
                 marginBottom: spacing.md
               }]}>
-                Video Information
+                Video Details & Metadata
               </Text>
               
               <View style={[styles.statItem, {
@@ -650,8 +636,16 @@ export default function VideoDetailScreen() {
           ]}>
             <View style={[styles.contentCard, {
               backgroundColor: colors.surface.card,
-              borderRadius: 12,
-              padding: spacing.md
+              borderRadius: 16,
+              padding: spacing.md,
+              shadowColor: colors.text.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 3,
+              borderWidth: 1,
+              borderColor: colors.surface.overlay + '40',
+              marginBottom: spacing.md
             }]}>
               <Text style={[styles.sectionTitle, {
                 fontSize: typography.fontSize.lg,
@@ -659,7 +653,7 @@ export default function VideoDetailScreen() {
                 color: colors.text.primary,
                 marginBottom: spacing.md
               }]}>
-                Resources
+                Learning Resources
               </Text>
               
               {videoData.videoResources && Array.isArray(videoData.videoResources) && videoData.videoResources.length > 0 ? (
@@ -739,8 +733,16 @@ export default function VideoDetailScreen() {
           ]}>
             <View style={[styles.contentCard, {
               backgroundColor: colors.surface.card,
-              borderRadius: 12,
-              padding: spacing.md
+              borderRadius: 16,
+              padding: spacing.md,
+              shadowColor: colors.text.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 3,
+              borderWidth: 1,
+              borderColor: colors.surface.overlay + '40',
+              marginBottom: spacing.md
             }]}>
               <Text style={[styles.sectionTitle, {
                 fontSize: typography.fontSize.lg,
@@ -748,7 +750,7 @@ export default function VideoDetailScreen() {
                 color: colors.text.primary,
                 marginBottom: spacing.md
               }]}>
-                Video Questions
+                Interactive Questions
               </Text>
               
               {videoData.questions && Array.isArray(videoData.questions) && videoData.questions.length > 0 ? (
@@ -920,8 +922,16 @@ export default function VideoDetailScreen() {
           ]}>
             <View style={[styles.contentCard, {
               backgroundColor: colors.surface.card,
-              borderRadius: 12,
-              padding: spacing.md
+              borderRadius: 16,
+              padding: spacing.md,
+              shadowColor: colors.text.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 3,
+              borderWidth: 1,
+              borderColor: colors.surface.overlay + '40',
+              marginBottom: spacing.md
             }]}>
               <Text style={[styles.sectionTitle, {
                 fontSize: typography.fontSize.lg,
@@ -1007,7 +1017,7 @@ export default function VideoDetailScreen() {
                           color: colors.text.tertiary,
                           marginBottom: spacing.xs
                         }]}>
-                          Progress
+                          Your Progress
                         </Text>
                         <Text style={[styles.statValue, {
                           fontSize: typography.fontSize.lg,
@@ -1552,24 +1562,24 @@ export default function VideoDetailScreen() {
             </View>
           </View>
           
-          {/* Modern Tabs Section */}
+          {/* Enhanced Tabs Section */}
           <View style={{
-            marginTop: 24,
-            marginBottom: 20,
+            marginTop: spacing.lg,
+            marginBottom: spacing.md,
           }}>
-            {/* Tab Headers with Modern Design */}
+            {/* Tab Headers with Enhanced Design */}
             <View style={{
               backgroundColor: colors.surface.card,
-              borderRadius: 20,
-              padding: 8,
-              marginBottom: 28,
-              shadowColor: colors.brand.primary,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.15,
-              shadowRadius: 12,
-              elevation: 8,
+              borderRadius: 16,
+              padding: 6,
+              marginBottom: spacing.lg,
+              shadowColor: colors.text.primary,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 8,
+              elevation: 3,
               borderWidth: 1,
-              borderColor: colors.surface.overlay + '30',
+              borderColor: colors.surface.overlay + '40',
             }}>
               <View style={{
                 flexDirection: 'row' as const,
@@ -1577,6 +1587,9 @@ export default function VideoDetailScreen() {
               }}>
                 {tabs.map((tab, index) => {
                   const isActive = activeTab === tab.id;
+                  const isFirst = index === 0;
+                  const isLast = index === tabs.length - 1;
+                  
                   return (
                     <TouchableOpacity
                       key={tab.id}
@@ -1586,54 +1599,68 @@ export default function VideoDetailScreen() {
                           flexDirection: 'column' as const,
                           alignItems: 'center',
                           justifyContent: 'center',
-                          paddingVertical: 16,
-                          paddingHorizontal: 12,
+                          paddingVertical: spacing.md,
+                          paddingHorizontal: spacing.sm,
                           borderRadius: 12,
                           position: 'relative' as const,
                           minHeight: 70,
+                          backgroundColor: colors.surface.overlay + '30',
+                          marginHorizontal: 2,
                         },
                         isActive && {
                           backgroundColor: colors.brand.primary,
                           shadowColor: colors.brand.primary,
-                          shadowOffset: { width: 0, height: 6 },
-                          shadowOpacity: 0.4,
-                          shadowRadius: 12,
-                          elevation: 8,
-                          transform: [{ scale: 1.02 }],
-                          borderWidth: 2,
-                          borderColor: 'rgba(255,255,255,0.2)',
-                        }
+                          shadowOffset: { width: 0, height: 4 },
+                          shadowOpacity: 0.25,
+                          shadowRadius: 8,
+                          elevation: 6,
+                          transform: [{ scale: 1.03 }],
+                          borderWidth: 1,
+                          borderColor: colors.brand.primary + '40',
+                          marginHorizontal: 0,
+                          zIndex: 1,
+                        },
+                        isFirst && { marginLeft: 0 },
+                        isLast && { marginRight: 0 },
                       ]}
                       onPress={() => {
                         handleTabChange(tab.id);
-                        // Add haptic feedback
-                        // Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       }}
-                      activeOpacity={0.8}
+                      activeOpacity={0.7}
                     >
-                      {/* Tab Icon with Badge */}
-                      <View style={{ position: 'relative' as const, marginBottom: 6 }}>
+                      {/* Tab Icon with Enhanced Badge */}
+                      <View style={{ 
+                        position: 'relative' as const, 
+                        marginBottom: spacing.xs,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
                         <Ionicons 
                           name={tab.icon as any} 
-                          size={22} 
+                          size={24} 
                           color={isActive ? 'white' : tab.color} 
                         />
-                        {/* Badge for Questions/Resources count */}
+                        {/* Enhanced Badge for Questions/Resources count */}
                         {tab.badge !== null && tab.badge !== 0 && (
                           <View style={{
                             position: 'absolute' as const,
-                            top: -6,
-                            right: -8,
-                            backgroundColor: isActive ? 'rgba(255,255,255,0.9)' : colors.status.error,
-                            borderRadius: 10,
-                            minWidth: 18,
-                            height: 18,
+                            top: -8,
+                            right: -10,
+                            backgroundColor: isActive ? 'white' : tab.color,
+                            borderRadius: 12,
+                            minWidth: 20,
+                            height: 20,
                             justifyContent: 'center',
                             alignItems: 'center',
-                            paddingHorizontal: 4,
+                            paddingHorizontal: 6,
+                            shadowColor: colors.text.primary,
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.15,
+                            shadowRadius: 4,
+                            elevation: 3,
                           }}>
                             <Text style={{
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: '700' as const,
                               color: isActive ? colors.brand.primary : 'white',
                             }}>
@@ -1643,39 +1670,39 @@ export default function VideoDetailScreen() {
                         )}
                       </View>
                       
-                      {/* Tab Title */}
+                      {/* Enhanced Tab Title with Better Readability */}
                       <Text style={[
                         {
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: '600' as const,
                           color: colors.text.secondary,
                           textAlign: 'center' as const,
-                          lineHeight: 16,
+                          lineHeight: 18,
                         },
                         isActive && { 
                           color: 'white', 
-                          fontWeight: '700' as const 
+                          fontWeight: '800' as const 
                         }
                       ]}>
                         {tab.title}
                       </Text>
                       
-                      {/* Active Indicator */}
+                      {/* Enhanced Active Indicator */}
                       {isActive && (
                         <View style={{
                           position: 'absolute' as const,
-                          bottom: -8,
+                          bottom: -6,
                           left: '50%',
-                          marginLeft: -6,
-                          width: 12,
-                          height: 4,
+                          marginLeft: -8,
+                          width: 16,
+                          height: 3,
                           backgroundColor: 'white',
                           borderRadius: 2,
                           shadowColor: '#000',
-                          shadowOffset: { width: 0, height: 2 },
-                          shadowOpacity: 0.3,
-                          shadowRadius: 6,
-                          elevation: 4,
+                          shadowOffset: { width: 0, height: 1 },
+                          shadowOpacity: 0.2,
+                          shadowRadius: 3,
+                          elevation: 2,
                         }} />
                       )}
                     </TouchableOpacity>
