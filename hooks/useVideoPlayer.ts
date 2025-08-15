@@ -288,22 +288,41 @@ export const useVideoPlayer = ({ videoData, onQuestionAnswer }: UseVideoPlayerPr
 
   // Handle video time update
   const handleTimeUpdate = useCallback(async (status: any) => {
-
-     console.log('questionjfksdbfjsdbfjk', {
-      status
-
+    // 🔍 DEBUG: Raw status object
+    console.log('📊 handleTimeUpdate- [TIME_UPDATE] Raw status:', {
+      positionMillis: status?.positionMillis,
+      durationMillis: status?.durationMillis,
+      isLoaded: status?.isLoaded,
+      isBuffering: status?.isBuffering,
+      isPlaying: status?.isPlaying,
+      hasValidData: !!(status?.positionMillis && status?.durationMillis)
     });
-    
 
-
+    // 🚫 Early exit check
     if (!status?.positionMillis || !status?.durationMillis) {
-      return; // Skip invalid status updates
+      console.log('❌ handleTimeUpdate- [TIME_UPDATE] Invalid status - skipping update:', {
+        positionMillis: status?.positionMillis,
+        durationMillis: status?.durationMillis,
+        reason: 'Missing position or duration data'
+      });
+      return;
     }
     
     const currentTime = status.positionMillis / 1000;
     const duration = status.durationMillis / 1000;
     const isBuffering = status.isBuffering || false;
     const isLoaded = status.isLoaded || false;
+
+    // 🎯 DEBUG: Processed time data
+    console.log('⏰handleTimeUpdate- [TIME_UPDATE] Processed time data:', {
+      currentTime: currentTime.toFixed(2) + 's',
+      duration: duration.toFixed(2) + 's',
+      progress: ((currentTime / duration) * 100).toFixed(1) + '%',
+      isBuffering,
+      isLoaded,
+      hasSetInitialPosition,
+      videoInitialPosition: videoInitialPosition.toFixed(2) + 's'
+    });
 
     // Update player state with comprehensive status
     setPlayerState(prev => ({
@@ -326,16 +345,35 @@ export const useVideoPlayer = ({ videoData, onQuestionAnswer }: UseVideoPlayerPr
 
     // Check for question triggers (only when not showing question and video is loaded)
     if (!playerState.showQuestion && videoData.questions?.length && isLoaded) {
+      console.log('🔍handleTimeUpdate- Chektimeinnnn:', currentTime.toFixed(1) + 's');
+      console.log('🔍 handleTimeUpdate- Checking questions:', {
+        totalQuestions: videoData.questions?.length,
+        showQuestion: playerState.showQuestion,
+        currentTime: currentTime.toFixed(2) + 's'
+      });
+      
       const questionToShow = videoData.questions.find(q => {
         const triggerTime = q.meta.timeToShowQuestion || 0;
-        const isInTriggerWindow = currentTime >= triggerTime && currentTime < triggerTime + 1;
+        // Show popup when integer part of currentTime matches integer part of triggerTime
+        const isInTriggerWindow = Math.floor(currentTime) === Math.floor(triggerTime);
         const notAnswered = !playerState.progress.answeredQuestions.some(aq => aq.questionId === q._id);
+        
+        console.log('🔍 handleTimeUpdate- Question check details:', {
+          questionId: q._id,
+          triggerTime: triggerTime.toFixed(2) + 's',
+          currentTime: currentTime.toFixed(2) + 's',
+          currentSeconds: Math.floor(currentTime),
+          triggerSeconds: Math.floor(triggerTime),
+          isInTriggerWindow,
+          notAnswered,
+          shouldShow: isInTriggerWindow && notAnswered
+        });
         
         return isInTriggerWindow && notAnswered;
       });
 
       if (questionToShow) {
-        console.log('❓ Triggering question at time:', currentTime.toFixed(1) + 's');
+        console.log('❓handleTimeUpdate- Triggering question at time:', currentTime.toFixed(1) + 's');
         setPlayerState(prev => ({
           ...prev,
           isPlaying: false,
@@ -349,6 +387,8 @@ export const useVideoPlayer = ({ videoData, onQuestionAnswer }: UseVideoPlayerPr
         }
       }
     }
+
+    console.log('🔍 handleTimeUpdate- myelse:', !playerState.showQuestion && videoData.questions?.length && isLoaded);
 
     // Save progress periodically with enhanced tracking
     const isCompleted = currentTime >= duration * 0.95; // Consider 95% as completed

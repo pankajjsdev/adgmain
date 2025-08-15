@@ -81,8 +81,8 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   showQuestion = false,
   onQuestionAnswer,
   onQuestionClose,
-  videoTitle = 'Nadi Shodhana Pranayama',
-  videoAuthor = 'by Joshna Ramakrishnan',
+  videoTitle = '',
+  videoAuthor = '...',
   // Fallback system props
   hasError = false,
   isRetrying = false,
@@ -655,7 +655,6 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     return () => backHandler.remove();
   }, [isFullscreen, handleFullscreenToggle]);
 
-  console.log("controlsOpacity", controlsOpacity)
 
   return (
     <View style={[styles.container, style, isFullscreen && styles.fullscreenContainer]}>

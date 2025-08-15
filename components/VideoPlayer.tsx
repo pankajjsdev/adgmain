@@ -183,6 +183,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       player.volume = volume;
       player.playbackRate = playbackSpeed;
       
+      // CRITICAL: Enable timeUpdate events by setting interval (default is 0 = disabled)
+      player.timeUpdateEventInterval = 0.25; // Emit timeUpdate every 250ms
+      
       // Apply buffer configuration based on video format for better performance
       const bufferConfig = getBufferConfig(videoFormat);
       player.bufferOptions = {
@@ -575,32 +578,40 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     playerInstance.playbackRate = playbackSpeed;
   }, [playbackSpeed, playerInstance]);
 
-  // Set up event listeners using useEventListener
-  useEventListener(playerInstance, 'timeUpdate', (payload: TimeUpdateEventPayload) => {
-    // Update internal state for UI
-    setInternalCurrentTime(payload.currentTime);
-    setInternalDuration(playerInstance.duration);
-    
-    const progressData = {
-      positionMillis: payload.currentTime * 1000,
-      durationMillis: playerInstance.duration * 1000,
-      isLoaded: true,
-      isPlaying: playerInstance.playing
-    };
-    
-    // Debug every timeUpdate event to see if it's firing
-    console.log('⏱️ TimeUpdate Event:', {
-      currentTime: payload.currentTime,
-      duration: playerInstance.duration,
-      progress: (payload.currentTime / playerInstance.duration * 100).toFixed(1) + '%',
-      isPlaying: playerInstance.playing,
-      onTimeUpdateCalled: true
-    });
-    
-    onTimeUpdate(progressData);
-  });
+  // Proper event listeners for Expo Video
+  useEventListener(playerInstance, 'timeUpdate', useCallback((payload: TimeUpdateEventPayload) => {
+    try {
+      const currentTime = payload.currentTime || 0;
+      const duration = playerInstance.duration || 0;
+      
+      // Update internal state for UI
+      setInternalCurrentTime(currentTime);
+      setInternalDuration(duration);
+      
+      const progressData = {
+        positionMillis: currentTime * 1000,
+        durationMillis: duration * 1000,
+        isLoaded: duration > 0,
+        isPlaying: playerInstance.playing || false,
+        isBuffering: false
+      };
+      
+      // Debug every timeUpdate event to see if it's firing
+      console.log('⏱️ Native TimeUpdate Event:', {
+        currentTime: currentTime.toFixed(1),
+        duration: duration.toFixed(1),
+        progress: duration > 0 ? (currentTime / duration * 100).toFixed(1) + '%' : '0%',
+        isPlaying: playerInstance.playing,
+        onTimeUpdateCalled: true
+      });
+      
+      onTimeUpdate(progressData);
+    } catch (error) {
+      console.error('❌ Error in time update:', error);
+    }
+  }, [playerInstance, onTimeUpdate]));
 
-  useEventListener(playerInstance, 'statusChange', (payload: StatusChangeEventPayload) => {
+  useEventListener(playerInstance, 'statusChange', useCallback((payload: StatusChangeEventPayload) => {
     console.log('🔄 Player status changed:', payload.status, {
       isLoaded: payload.status === 'readyToPlay',
       currentTime: playerInstance.currentTime,
@@ -620,7 +631,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }, 100);
     }
-  });
+  }, [playerInstance, isPlaying]));
 
   useEventListener(playerInstance, 'sourceLoad', (payload: SourceLoadEventPayload) => {
     console.log('✅ Video source loaded successfully:', {
