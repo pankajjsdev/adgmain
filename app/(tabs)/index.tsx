@@ -23,7 +23,6 @@ export default function HomeScreen() {
   
   // State for refresh and interactions
   const [refreshing, setRefreshing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Track screen view
   useScreenTracking('Home', {
@@ -51,13 +50,6 @@ export default function HomeScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-
-    // Update time every minute
-    const timeInterval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-
-    return () => clearInterval(timeInterval);
   }, [fadeAnim, slideAnim, scaleAnim]);
 
   // Pull to refresh handler
@@ -71,21 +63,6 @@ export default function HomeScreen() {
     }, 1500);
   };
 
-  // Get greeting based on time
-  const getGreeting = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  };
-
-  // Get time-based emoji
-  const getTimeEmoji = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return '🌅';
-    if (hour < 17) return '☀️';
-    return '🌙';
-  };
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -174,36 +151,7 @@ export default function HomeScreen() {
             }
           ]}
         >
-          {/* Enhanced Greeting Section */}
-          <View style={localStyles.greetingSection}>
-            <LinearGradient
-              colors={[colors.surface.card + '40', colors.surface.card + '20']}
-              style={localStyles.greetingCard}
-            >
-              <View style={localStyles.greetingContent}>
-                <Text style={localStyles.timeEmoji}>{getTimeEmoji()}</Text>
-                <Text style={localStyles.greeting}>
-                  {getGreeting()}, <Text style={localStyles.greetingName}>{user?.firstName || 'User'}!</Text>
-                </Text>
-                <Text style={localStyles.greetingSubtext}>
-                  Ready to continue your learning journey?
-                </Text>
-              </View>
-              <View style={localStyles.greetingStats}>
-                <View style={localStyles.statItem}>
-                  <Text style={localStyles.statNumber}>12</Text>
-                  <Text style={localStyles.statLabel}>Courses</Text>
-                </View>
-                <View style={localStyles.statDivider} />
-                <View style={localStyles.statItem}>
-                  <Text style={localStyles.statNumber}>85%</Text>
-                  <Text style={localStyles.statLabel}>Progress</Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-
-          {/* Enhanced Banner Carousel */}
+          {/* Enhanced Banner Carousel with Greeting */}
           <View style={localStyles.bannerSection}>
             <BannerCarousel height={220} />
           </View>
