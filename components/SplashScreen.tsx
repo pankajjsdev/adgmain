@@ -7,6 +7,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { getClientConfig } from '@/utils/clientConfig';
+import { useFeatureFlagInitializer } from '@/hooks/useFeatureFlags';
 
 interface SplashScreenProps {
   onAnimationComplete: () => void;
@@ -16,6 +17,9 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
   const clientConfig = getClientConfig();
   const splashConfig = clientConfig.splash;
 
+  // Initialize feature flags during splash screen
+  const { isInitialized, isLoading } = useFeatureFlagInitializer();
+
   // Animation values
   const logoScale = useRef(new Animated.Value(0.3)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -24,10 +28,18 @@ export default function SplashScreen({ onAnimationComplete }: SplashScreenProps)
 
   // Memoize animation completion callback
   const handleAnimationComplete = useCallback(() => {
-    setTimeout(() => {
-      onAnimationComplete();
-    }, 500);
-  }, [onAnimationComplete]);
+    // Wait for feature flags to initialize before completing splash
+    if (isInitialized && !isLoading) {
+      setTimeout(() => {
+        onAnimationComplete();
+      }, 500);
+    } else {
+      // If feature flags are still loading, wait a bit longer
+      setTimeout(() => {
+        onAnimationComplete();
+      }, 1000);
+    }
+  }, [onAnimationComplete, isInitialized, isLoading]);
 
   useEffect(() => {
     // If splash config is not available, skip it
