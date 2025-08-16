@@ -1026,23 +1026,30 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       alignItems: 'center',
     },
     
+    optionContentText: {
+      flex: 1,
+      marginLeft: Spacing.sm,
+    },
+    
+    optionImageContainer: {
+      marginBottom: Spacing.sm,
+    },
+    
+    optionImage: {
+      width: '100%',
+      height: 120,
+      borderRadius: BorderRadius.base,
+    },
+    
     optionText: {
       fontSize: Typography.fontSize.base,
       color: colors.text.primary,
-      flex: 1,
-      marginLeft: Spacing.sm,
+      lineHeight: Typography.fontSize.base * 1.4,
     },
     
     selectedOptionText: {
       color: colors.interactive.primary,
       fontWeight: Typography.fontWeight.semibold,
-    },
-    
-    optionImage: {
-      width: 40,
-      height: 40,
-      borderRadius: BorderRadius.sm,
-      marginRight: Spacing.sm,
     },
     
     // Radio Button Styles
@@ -1100,7 +1107,14 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
     // Fill Container
     fillContainer: {
       marginVertical: Spacing.md,
+      width: '100%',
     },
+    
+    fillInputContainer: {
+      marginBottom: Spacing.md,
+    },
+    
+
     
     // Question Content Styles
     questionContent: {
@@ -1108,19 +1122,124 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       alignItems: 'center',
     },
     
+    // Question Header Styles
+    questionHeader: {
+      padding: Spacing.md,
+      borderRadius: BorderRadius.base,
+      marginBottom: Spacing.md,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    
+    questionHeaderTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    
+    questionNumber: {
+      fontSize: Typography.fontSize.base,
+      fontWeight: Typography.fontWeight.semibold,
+    },
+    
+    questionTypeLabel: {
+      fontSize: Typography.fontSize.xs,
+      fontWeight: Typography.fontWeight.medium,
+      textTransform: 'uppercase',
+    },
+    
+    // Question Image Container
+    questionImageContainer: {
+      marginBottom: Spacing.md,
+      maxHeight: 200,
+      overflow: 'hidden',
+    },
+    
+    questionImage: {
+      width: '100%',
+      height: 150,
+      borderRadius: BorderRadius.base,
+    },
+    
+    // Question Text Container
+    questionTextContainer: {
+      padding: Spacing.md,
+      borderRadius: BorderRadius.base,
+      marginBottom: Spacing.md,
+      width: '100%',
+    },
+    
     questionText: {
       fontSize: Typography.fontSize.lg,
       fontWeight: Typography.fontWeight.semibold,
       color: colors.text.primary,
       textAlign: 'center',
-      marginBottom: Spacing.md,
     },
     
-    questionImage: {
-      width: 200,
-      height: 150,
-      borderRadius: BorderRadius.base,
+    // Answer Section Header
+    answerSectionHeader: {
       marginBottom: Spacing.md,
+      width: '100%',
+    },
+    
+    answerSectionTitle: {
+      fontSize: Typography.fontSize.base,
+      fontWeight: Typography.fontWeight.semibold,
+      textAlign: 'center',
+    },
+    
+    // Navigation Container and Buttons
+    navigationContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.md,
+      paddingVertical: Spacing.sm,
+      gap: Spacing.md,
+    },
+    
+    navButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: Spacing.lg,
+      paddingVertical: Spacing.md,
+      borderRadius: BorderRadius.base,
+      gap: Spacing.xs,
+    },
+    
+    prevButton: {
+      borderWidth: 1,
+      backgroundColor: colors.surface.primary,
+    },
+    
+    nextButton: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    
+    nextButtonWithPrev: {
+      flex: 0,
+      minWidth: 120,
+    },
+    
+    navButtonText: {
+      fontSize: Typography.fontSize.base,
+      fontWeight: Typography.fontWeight.semibold,
+    },
+    
+    // Progress Indicator
+    progressIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.xs,
+      marginLeft: Spacing.md,
+    },
+    
+    progressDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
     },
 
     // Video Detail Page Stats Styles
@@ -1215,18 +1334,7 @@ export const createGlobalStyles = (colorScheme: 'light' | 'dark') => {
       borderColor: colors.border.secondary,
     },
 
-    questionHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: Spacing.md,
-    },
 
-    questionNumber: {
-      fontSize: Typography.fontSize.sm,
-      fontWeight: Typography.fontWeight.semibold,
-      color: colors.text.secondary,
-    },
 
     questionTypeBadge: {
       backgroundColor: colors.brand.primary + '20',

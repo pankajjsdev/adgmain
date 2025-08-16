@@ -1042,8 +1042,16 @@ export const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       {/* Question Modal - Always on top */}
       <VideoQuestionModal
         visible={showQuestion}
-        question={currentQuestion || null}
-        onAnswer={onQuestionAnswer || (() => {})}
+        questions={currentQuestion ? [currentQuestion] : []}
+        onAnswer={(questionId: string, answer: string) => {
+          onQuestionAnswer?.(answer);
+        }}
+        onSubmitAll={(submissions: any[]) => {
+          // Handle final submission if needed
+          if (submissions.length > 0) {
+            onQuestionAnswer?.(submissions[0].answer);
+          }
+        }}
         onClose={onQuestionClose}
         isFullscreen={!actualIsPortrait}
       />

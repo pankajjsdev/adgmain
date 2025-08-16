@@ -1,8 +1,8 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useGlobalStyles } from '@/hooks/useGlobalStyles';
 import * as Analytics from '@/utils/analytics';
+import { Ionicons } from '@expo/vector-icons';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   children: ReactNode;
@@ -189,7 +189,7 @@ const ErrorFallbackUI: React.FC<{
           marginBottom: 24,
           lineHeight: 24
         }}>
-          We encountered an unexpected error. Don't worry, we're working to fix it!
+          We encountered an unexpected error. Don&apos;t worry, we&apos;re working to fix it!
         </Text>
 
         {errorId && (
